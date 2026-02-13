@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
@@ -42,27 +42,35 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
         }
     };
 
-    const handleDelete = () => {
-        Alert.alert(
-            "Delete Task",
-            "Are you sure you want to delete this task?",
-            [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Delete", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        try {
-                            await api.deleteTodo(todo.id);
-                            navigation.goBack();
-                        } catch (e) {
-                            console.error('Delete failed:', e);
-                            Alert.alert("Error", "Failed to delete task.");
-                        }
-                    }
+    const handleDelete = async () => {
+        const doDelete = async () => {
+            try {
+                await api.deleteTodo(todo.id);
+                navigation.goBack();
+            } catch (e) {
+                console.error('Delete failed:', e);
+                if (Platform.OS === 'web') {
+                    window.alert("Failed to delete task.");
+                } else {
+                    Alert.alert("Error", "Failed to delete task.");
                 }
-            ]
-        );
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm("Are you sure you want to delete this task?")) {
+                await doDelete();
+            }
+        } else {
+            Alert.alert(
+                "Delete Task",
+                "Are you sure you want to delete this task?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Delete", style: "destructive", onPress: doDelete }
+                ]
+            );
+        }
     };
 
     const handleMarkNotDone = () => {

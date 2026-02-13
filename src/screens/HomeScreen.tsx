@@ -10,6 +10,7 @@ import { HealthBanner } from '../components/HealthBanner';
 import { TaskItem } from '../components/TaskItem';
 import { MascotCorner } from '../components/MascotCorner';
 import { CompletionModal } from '../components/CompletionModal';
+import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
 
 export const HomeScreen = ({ navigation }: any) => {
   const { getToken, signOut } = useAuth();
@@ -18,6 +19,7 @@ export const HomeScreen = ({ navigation }: any) => {
   const [todos, setTodos] = useState<any[]>([]);
   const [dailyLog, setDailyLog] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [selectedMood, setSelectedMood] = useState<string | undefined>(undefined);
   
@@ -40,6 +42,8 @@ export const HomeScreen = ({ navigation }: any) => {
       }
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,7 +167,9 @@ export const HomeScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {sortedTodos.length === 0 ? (
+        {loading ? (
+          <TaskListSkeleton count={5} />
+        ) : sortedTodos.length === 0 ? (
           <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No tasks yet. Take a breath.</Text>
           </View>

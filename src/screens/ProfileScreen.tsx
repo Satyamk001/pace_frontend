@@ -6,17 +6,20 @@ import { MascotAvatar } from '../components/MascotAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
+import { ProfileSkeleton } from '../components/ui/SkeletonLoader';
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { signOut, getToken } = useAuth();
     const { user } = useUser();
     const api = createApiService(getToken);
+    const { isLoaded } = useUser();
 
     const [stats, setStats] = useState({
         streak: 0,
         totalTasks: 0,
         calmDays: 0
     });
+    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchStats = async () => {
@@ -27,6 +30,8 @@ export const ProfileScreen = ({ navigation }: any) => {
             }
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -77,6 +82,10 @@ export const ProfileScreen = ({ navigation }: any) => {
     };
 
     const toggleSwitch = () => setNotificationsEnabled(previousState => !previousState);
+
+    if (!isLoaded || loading) {
+        return <ProfileSkeleton />;
+    }
 
     return (
         <View style={styles.container}>

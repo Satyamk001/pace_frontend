@@ -7,6 +7,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { InsightCard } from '../components/InsightCard';
 import { MascotCorner } from '../components/MascotCorner';
+import { StatsSkeleton } from '../components/ui/SkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
 
 const screenWidth = Dimensions.get('window').width;
@@ -15,6 +16,7 @@ const RANGE_OPTIONS = [
     { label: '7D', value: '7' },
     { label: '30D', value: '30' },
     { label: '3M', value: '90' },
+    { label: '1Y', value: '365' },
 ];
 
 export const StatsScreen = ({ navigation }: any) => {
@@ -64,43 +66,59 @@ export const StatsScreen = ({ navigation }: any) => {
     ? (healthData.reduce((sum: number, h: any) => sum + (h.fatigue_level || 0), 0) / healthData.length).toFixed(1)
     : '—';
 
-  // Completion rate
+  // Completion rate & Counts
   const totalTasks = summary.totalTasks || 0;
   const calmDays = summary.calmDays || 0;
+  const painDays = summary.painDays || 0;
   const streak = summary.streak || 0;
 
   // Build chart data from real health history
   const getChartData = () => {
       if (!healthData || healthData.length === 0) return { labels: [], datasets: [{ data: [0] }] };
       
-      // Sample data points for readability
-      const step = healthData.length > 20 ? Math.ceil(healthData.length / 10) : 1;
+      // Sample data points for readability (aim for ~6-8 labels on X axis)
+      // For 365 days, step ~45. For 30 days, step ~5.
+      const targetLabels = 6;
+      const step = Math.ceil(healthData.length / targetLabels);
       
-      const sampled = healthData.filter((_: any, i: number) => i % step === 0);
+      const labels = healthData
+          .filter((_: any, i: number) => i % step === 0)
+          .map((h: any) => {
+              const d = new Date(h.date);
+              return `${d.getMonth()+1}/${d.getDate()}`;
+          });
 
-      const labels = sampled.map((h: any) => {
-          const d = new Date(h.date);
-          return `${d.getMonth()+1}/${d.getDate()}`;
-      });
+      const painData = healthData.map((h: any) => h.pain_level || 0);
+      const fatigueData = healthData.map((h: any) => h.fatigue_level || 0);
 
-      const painData = sampled.map((h: any) => h.pain_level || 0);
-      const fatigueData = sampled.map((h: any) => h.fatigue_level || 0);
+      // Downsample data if too huge for performance (ChartKit can lag with 365 points)
+      // Ensure we match the labels length roughly or just pass full data if ChartKit handles it (it draws bezier)
+      // ChartKit needs `data` array length to match `labels` if used strictly, but for Bezier it often interpolates. 
+      // Safest: pass full data for lines, but labels are just X-axis strings.
+      // Actually ChartKit behaves best when data points align. Let's just pass all points for the line 
+      // but we need to match dataset length to labels length? No, labels are just string ticks.
+      // WAIT: ChartKit maps data[i] to label[i]. If lengths mismatch, it looks weird.
+      // So we MUST downsample the data points to match the labels if we want them aligned.
+      
+      const sampledData = healthData.filter((_: any, i: number) => i % step === 0);
+      const sampledPain = sampledData.map((h: any) => h.pain_level || 0);
+      const sampledFatigue = sampledData.map((h: any) => h.fatigue_level || 0);
 
       return {
           labels,
           datasets: [
               {
-                  data: painData,
-                  color: (opacity = 1) => `rgba(239, 154, 154, ${opacity})`, // Soft red for pain
-                  strokeWidth: 3
+                  data: sampledPain,
+                  color: (opacity = 1) => `rgba(239, 83, 80, ${opacity})`, // Error/Red for pain
+                  strokeWidth: 2
               },
               {
-                  data: fatigueData,
-                  color: (opacity = 1) => `rgba(144, 202, 249, ${opacity})`, // Soft blue for fatigue
+                  data: sampledFatigue,
+                  color: (opacity = 1) => `rgba(66, 165, 245, ${opacity})`, // Blue for fatigue
                   strokeWidth: 2
               }
           ],
-          legend: ["Pain Level", "Fatigue Level"]
+          legend: ["Pain", "Fatigue"]
       };
   };
 
@@ -110,14 +128,16 @@ export const StatsScreen = ({ navigation }: any) => {
       color: (opacity = 1) => colors.primary,
       strokeWidth: 2,
       barPercentage: 0.5,
-      useShadowColorFromDataset: true,
+      useShadowColorFromDataset: false,
       decimalPlaces: 0,
       labelColor: (opacity = 1) => colors.textLight,
       propsForDots: {
-          r: "4",
-          strokeWidth: "2",
+          r: "3",
+          strokeWidth: "1",
           stroke: colors.surface
-      }
+      },
+      fillShadowGradientFrom: colors.surface,
+      fillShadowGradientTo: colors.surface,
   };
 
   const getRangeLabel = () => {
@@ -125,17 +145,13 @@ export const StatsScreen = ({ navigation }: any) => {
           case '7': return 'Past 7 Days';
           case '30': return 'Past 30 Days';
           case '90': return 'Past 3 Months';
+          case '365': return 'Past Year';
           default: return 'Selected Period';
       }
   };
 
   if (loading && !stats) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textLight, marginTop: spacing.m }}>Loading insights...</Text>
-      </View>
-    );
+    return <StatsSkeleton />;
   }
 
   return (
@@ -163,7 +179,7 @@ export const StatsScreen = ({ navigation }: any) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Summary Cards Row */}
+        {/* Row 1: Tasks & Streak */}
         <View style={styles.cardRow}>
             <View style={styles.cardHalf}>
                 <InsightCard 
@@ -178,66 +194,69 @@ export const StatsScreen = ({ navigation }: any) => {
                 <InsightCard 
                     title="Streak" 
                     value={`${streak} 🔥`}
-                    subtitle="Consecutive days"
+                    subtitle="Consecutive"
                     icon={<Ionicons name="flame" size={20} color="#FF6B35" />}
                     color="#FF6B35"
                 />
             </View>
         </View>
 
+        {/* Row 2: Calm Days & Pain Days (New) */}
         <View style={styles.cardRow}>
             <View style={styles.cardHalf}>
                 <InsightCard 
-                    title="Avg Pain" 
-                    value={avgPain}
-                    subtitle={getRangeLabel()}
-                    icon={<Ionicons name="medical" size={20} color={colors.error} />}
-                    color={colors.error}
+                    title="Calm Days" 
+                    value={calmDays}
+                    subtitle="No flare-ups"
+                    icon={<Ionicons name="leaf" size={20} color={colors.success} />}
+                    color={colors.success}
                 />
             </View>
             <View style={styles.cardHalf}>
                 <InsightCard 
-                    title="Avg Fatigue" 
-                    value={avgFatigue}
-                    subtitle={getRangeLabel()}
-                    icon={<Ionicons name="battery-half" size={20} color={colors.primary} />}
-                    color={colors.primary}
+                    title="Pain Days" 
+                    value={painDays}
+                    subtitle="High Pain (7+)"
+                    icon={<Ionicons name="alert-circle" size={20} color={colors.error} />}
+                    color={colors.error}
                 />
             </View>
         </View>
 
-        <InsightCard 
-            title="Calm Days" 
-            value={calmDays}
-            subtitle="Days without flare-ups"
-            icon={<Ionicons name="leaf" size={20} color={colors.success} />}
-            color={colors.success}
-        />
-
         {/* Health Trends Chart */}
         <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Health Trends</Text>
-            <Text style={styles.chartSubtitle}>{getRangeLabel()}</Text>
+            <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%'}}>
+                <View>
+                    <Text style={styles.chartTitle}>Health Trends</Text>
+                    <Text style={styles.chartSubtitle}>{getRangeLabel()}</Text>
+                </View>
+                <View style={{alignItems:'flex-end'}}>
+                   <Text style={{fontSize:10, color:colors.textLight}}>Avg Pain: {avgPain}</Text>
+                   <Text style={{fontSize:10, color:colors.textLight}}>Avg Fatigue: {avgFatigue}</Text>
+                </View>
+            </View>
+            
             {healthData.length > 0 ? (
                 <LineChart
                     data={getChartData()}
-                    width={screenWidth - 64}
-                    height={200}
+                    width={screenWidth - 48} // Adjusted for padding
+                    height={220}
                     chartConfig={chartConfig}
                     bezier
                     style={{
                         marginVertical: 8,
                         borderRadius: 16
                     }}
-                    withInnerLines={false}
+                    withInnerLines={true}
                     withOuterLines={false}
                     withVerticalLines={false}
+                    fromZero
                 />
             ) : (
                 <View style={styles.noDataChart}>
                     <Ionicons name="analytics-outline" size={48} color={colors.border} />
-                    <Text style={styles.noDataText}>No health data logged yet.</Text>
-                    <Text style={styles.noDataHint}>Log your daily health check-in to see trends here.</Text>
+                    <Text style={styles.noDataText}>No data for this period.</Text>
+                    <Text style={styles.noDataHint}>Log your daily health to see trends.</Text>
                 </View>
             )}
         </View>
