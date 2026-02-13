@@ -3,6 +3,7 @@ import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { SplashScreen } from './src/screens/SplashScreen';
 
 const tokenCache = {
   async getToken(key: string) {
@@ -40,9 +41,22 @@ export default function App() {
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
       <ClerkLoaded>
         <SafeAreaProvider>
-          <AppNavigator />
+          <MainAppContent />
         </SafeAreaProvider>
       </ClerkLoaded>
     </ClerkProvider>
   );
 }
+
+const MainAppContent = () => {
+    const [isSplashVisible, setIsSplashVisible] = React.useState(true);
+    
+    return (
+        <React.Fragment>
+            <AppNavigator />
+            {isSplashVisible && (
+                <SplashScreen onFinish={() => setIsSplashVisible(false)} />
+            )}
+        </React.Fragment>
+    );
+};

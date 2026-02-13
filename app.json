@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "frontend",
+    "name": "PACE",
     "slug": "frontend",
     "version": "1.0.0",
+    "scheme": "pace",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FDFCF5"
     },
     "ios": {
       "supportsTablet": true

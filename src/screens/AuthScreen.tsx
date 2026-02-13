@@ -26,7 +26,7 @@ export const AuthScreen = () => {
   const handleSignIn = React.useCallback(async () => {
     try {
       const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/dashboard', { scheme: 'myapp' }),
+        redirectUrl: Linking.createURL('/dashboard'),
       });
 
       if (createdSessionId && setActive) {

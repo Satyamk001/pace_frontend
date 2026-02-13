@@ -129,11 +129,7 @@ export const HomeScreen = ({ navigation }: any) => {
       {/* Fixed Header */}
       <View style={styles.fixedHeader}>
         <View style={styles.headerContainer}>
-            {navigation.canGoBack() && (
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
-            )}
+            {/* Back button removed for Home Screen */}
             <View style={styles.greetingIconWrap}>
                 <Ionicons name={greeting.icon} size={22} color={greeting.iconColor} />
             </View>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions, Animated } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { colors, spacing, typography, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
@@ -20,6 +20,9 @@ export const CalendarScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
   const api = createApiService(getToken);
   
+  // Animation Value
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   const [viewMode, setViewMode] = useState<'WEEK' | 'MONTH'>('WEEK');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
@@ -45,6 +48,24 @@ export const CalendarScreen = ({ navigation }: any) => {
     start.setDate(today.getDate() - today.getDay()); // Sunday
     setWeekStartDate(start);
   }, []);
+
+  // Reset scroll when view mode changes
+  useEffect(() => {
+      scrollY.setValue(0);
+  }, [viewMode]);
+
+  // Interpolations
+  const calendarHeight = scrollY.interpolate({
+      inputRange: [0, 100], // Scroll distance to full collapse
+      outputRange: [360, 0], // Initial height -> Collapsed
+      extrapolate: 'clamp'
+  });
+  
+  const calendarOpacity = scrollY.interpolate({
+      inputRange: [0, 50],
+      outputRange: [1, 0],
+      extrapolate: 'clamp'
+  });
 
   const fetchCalendarStats = async () => {
       try {
@@ -288,7 +309,7 @@ export const CalendarScreen = ({ navigation }: any) => {
       </View>
 
       {viewMode === 'MONTH' ? (
-          <View>
+          <Animated.View style={{ height: calendarHeight, opacity: calendarOpacity, overflow: 'hidden' }}>
               <Calendar
                 current={selectedStr}
                 onDayPress={onMonthDayPress}
@@ -327,7 +348,7 @@ export const CalendarScreen = ({ navigation }: any) => {
                       <Text style={styles.legendText}>All Tasks Done</Text>
                   </View>
               </View>
-          </View>
+          </Animated.View>
       ) : (
           renderWeekView()
       )}
@@ -340,10 +361,15 @@ export const CalendarScreen = ({ navigation }: any) => {
             </Text>
         </View>
 
-        <ScrollView 
+        <Animated.ScrollView 
             style={styles.scrollView} 
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadAllData} />}
+            onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: false }
+            )}
+            scrollEventThrottle={16}
         >
             {/* Daily Overview Card */}
             {(dayLog || healthMetrics || dayTasks.length > 0) && (
@@ -432,7 +458,7 @@ export const CalendarScreen = ({ navigation }: any) => {
                 </View>
             )}
             <View style={{height: 100}} />
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
 
       <MascotCorner mood="Working" />
