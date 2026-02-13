@@ -1,8 +1,7 @@
 import { useAuth } from '@clerk/clerk-expo';
 
-const BACKEND_URL = 'http://localhost:3001/api'; // Android emulator usually needs 10.0.2.2, iOS localhost. 
-// For physical device, use LAN IP. 
-// TODO: Make this an env var or dynamic based on environment.
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+
 
 export const createApiService = (getToken: () => Promise<string | null>) => {
   const getHeaders = async () => {
