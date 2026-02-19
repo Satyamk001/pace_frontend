@@ -12,59 +12,67 @@ interface InsightCardProps {
 
 export const InsightCard = ({ title, value, subtitle, icon, color = colors.primary }: InsightCardProps) => {
     return (
-        <View style={[styles.container, { borderColor: color, shadowColor: color }]}>
-            <View style={styles.header}>
-                <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
+        <View style={styles.container}>
+            <View style={styles.topRow}>
+                <View style={[styles.iconContainer, { backgroundColor: color + '18' }]}>
                     {icon}
                 </View>
-                <Text style={[styles.title, { color: colors.textLight }]}>{title}</Text>
             </View>
-            <Text style={[styles.value, { color: color }]}>{value}</Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            
+            <View style={styles.content}>
+                <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+                <Text style={styles.title}>{title}</Text>
+                {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
-        padding: spacing.l,
-        marginBottom: spacing.m,
+        backgroundColor: colors.surface, // Clean white/surface
+        borderRadius: borderRadius.l, // Soft corners (24px)
+        padding: spacing.m,
+        ...shadows.level1, // Very subtle lift
         borderWidth: 1,
-        // Soft colored glow effect
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 4,
+        borderColor: colors.border,
+        height: 140, // Taller, more vertical breathing room
+        justifyContent: 'space-between',
+        flex: 1, // Ensure it fills the half-width slot
     },
-    header: {
+    topRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.m,
-        gap: spacing.s
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: spacing.s,
     },
     iconContainer: {
-        padding: 8,
-        borderRadius: 12,
+        width: 36, // Smaller, more refined
+        height: 36,
+        borderRadius: 12, // Soft square
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
     },
-    title: {
-        ...typography.bodyBold,
-        fontSize: 14,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+    content: {
+        justifyContent: 'flex-end',
     },
     value: {
-        fontSize: 36,
-        fontWeight: '800',
+        fontSize: 28, 
+        fontWeight: '700', 
+        color: colors.text,
+        letterSpacing: -0.5,
         marginBottom: 4,
-        letterSpacing: -1
+    },
+    title: {
+        ...typography.body,
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text, // Darker than before for readability
+        marginBottom: 2,
     },
     subtitle: {
         ...typography.caption,
-        color: colors.textLight,
-        fontSize: 12
+        color: colors.textSecondary,
+        fontSize: 11,
     }
 });

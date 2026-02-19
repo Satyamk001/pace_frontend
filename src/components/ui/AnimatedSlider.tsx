@@ -1,76 +1,97 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, PanResponder, Animated, LayoutChangeEvent, Dimensions } from 'react-native';
-import { colors, shadows, borderRadius } from '../../theme';
+import { View, StyleSheet, PanResponder, Animated, LayoutChangeEvent } from 'react-native';
+import { colors, shadows } from '../../theme';
 
 interface AnimatedSliderProps {
     value: number; // 0 to 100
     onValueChange: (val: number) => void;
-    width?: number;
 }
 
-export const AnimatedSlider = ({ value, onValueChange, width = 300 }: AnimatedSliderProps) => {
-    const [sliderWidth, setSliderWidth] = useState(width);
+export const AnimatedSlider = ({ value, onValueChange }: AnimatedSliderProps) => {
+    const [sliderWidth, setSliderWidth] = useState(0);
     const panX = useRef(new Animated.Value(0)).current;
 
-    // Convert percentage value to position
+    // Keep latest values in refs so panResponder closure always reads fresh data
+    const sliderWidthRef = useRef(0);
+    const valueRef = useRef(value);
+    const startXRef = useRef(0); // panX value at gesture start
+
+    // Sync ref when value changes externally
     useEffect(() => {
-        const position = (value / 100) * sliderWidth;
-        panX.setValue(position);
+        valueRef.current = value;
+    }, [value]);
+
+    // Move thumb when value or sliderWidth changes
+    useEffect(() => {
+        if (sliderWidth > 0) {
+            const pos = (value / 100) * sliderWidth;
+            panX.setValue(pos);
+        }
     }, [value, sliderWidth]);
+
+    const handleLayout = (e: LayoutChangeEvent) => {
+        const w = e.nativeEvent.layout.width;
+        setSliderWidth(w);
+        sliderWidthRef.current = w;
+        // Reposition thumb immediately after layout
+        const pos = (valueRef.current / 100) * w;
+        panX.setValue(pos);
+    };
 
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
             onPanResponderGrant: () => {
-                // Optional: Scale up thumb on press
+                // Snapshot panX at gesture start — avoids stale closure
+                startXRef.current = (panX as any)._value ?? 0;
             },
             onPanResponderMove: (_, gestureState) => {
-                let newX = gestureState.dx + (value / 100) * sliderWidth;
-                if (newX < 0) newX = 0;
-                if (newX > sliderWidth) newX = sliderWidth;
-                
+                const w = sliderWidthRef.current;
+                if (w <= 0) return;
+
+                let newX = startXRef.current + gestureState.dx;
+                newX = Math.max(0, Math.min(newX, w));
+
                 panX.setValue(newX);
-                const newValue = Math.round((newX / sliderWidth) * 100);
+                const newValue = Math.round((newX / w) * 100);
                 onValueChange(newValue);
             },
             onPanResponderRelease: (_, gestureState) => {
-                // Finalize value
-                let newX = gestureState.dx + (value / 100) * sliderWidth;
-                if (newX < 0) newX = 0;
-                if (newX > sliderWidth) newX = sliderWidth;
-                const newValue = Math.round((newX / sliderWidth) * 100);
+                const w = sliderWidthRef.current;
+                if (w <= 0) return;
+
+                let newX = startXRef.current + gestureState.dx;
+                newX = Math.max(0, Math.min(newX, w));
+                const newValue = Math.round((newX / w) * 100);
                 onValueChange(newValue);
             }
         })
     ).current;
 
-    // Direct touch on track
-    const handleLayout = (e: LayoutChangeEvent) => {
-        setSliderWidth(e.nativeEvent.layout.width);
-    };
-
     return (
         <View style={styles.container} onLayout={handleLayout}>
             <View style={styles.track}>
-                <Animated.View 
+                <Animated.View
                     style={[
-                        styles.fill, 
-                        { width: panX.interpolate({
-                            inputRange: [0, sliderWidth],
-                            outputRange: [0, sliderWidth], // or just '0%' to '100%' if we mapped it 0-1
-                            extrapolate: 'clamp'
-                        }) }
-                    ]} 
+                        styles.fill,
+                        {
+                            width: panX.interpolate({
+                                inputRange: [0, Math.max(1, sliderWidth)],
+                                outputRange: ['0%', '100%'],
+                                extrapolate: 'clamp'
+                            })
+                        }
+                    ]}
                 />
             </View>
-            <Animated.View 
+            <Animated.View
                 {...panResponder.panHandlers}
                 style={[
                     styles.thumb,
                     { transform: [{ translateX: panX }] }
                 ]}
             >
-                {/* Optional: Grip lines or inner circle */}
                 <View style={styles.innerThumb} />
             </Animated.View>
         </View>
@@ -85,12 +106,10 @@ const styles = StyleSheet.create({
     },
     track: {
         height: 8,
-        backgroundColor: colors.surface, // or darker shade
+        backgroundColor: colors.border,
         borderRadius: 4,
         overflow: 'hidden',
         width: '100%',
-        borderWidth: 1,
-        borderColor: colors.border
     },
     fill: {
         height: '100%',
@@ -99,7 +118,7 @@ const styles = StyleSheet.create({
     },
     thumb: {
         position: 'absolute',
-        left: -12, // Half width to center
+        left: -12,
         width: 24,
         height: 24,
         borderRadius: 12,
@@ -107,13 +126,13 @@ const styles = StyleSheet.create({
         ...shadows.soft,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: colors.border
+        borderWidth: 2,
+        borderColor: colors.primary,
     },
     innerThumb: {
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: colors.primary
+        backgroundColor: colors.primary,
     }
 });

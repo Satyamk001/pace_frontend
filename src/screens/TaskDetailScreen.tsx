@@ -1,25 +1,52 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
-import { AnimatedSlider } from '../components/ui/AnimatedSlider';
-import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Slider from '@react-native-community/slider';
+import { CustomDatePicker } from '../components/ui/CustomDatePicker';
 import { toLocalISOString } from '../utils/dateUtils';
+
+import { CustomDialog } from '../components/ui/CustomDialog';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { BackButton } from '../components/ui/BackButton';
 
 export const TaskDetailScreen = ({ route, navigation }: any) => {
     const { todo } = route.params;
     const { getToken } = useAuth();
     const api = createApiService(getToken);
+    const insets = useSafeAreaInsets();
 
     const [title, setTitle] = useState(todo.title);
     const [description, setDescription] = useState(todo.description || '');
     const [energyLevel, setEnergyLevel] = useState<'LOW' | 'MEDIUM' | 'HIGH'>(todo.energy_level || 'MEDIUM');
     const [progress, setProgress] = useState(todo.progress || 0);
     const [isCompleted, setIsCompleted] = useState(todo.is_completed || false);
+    
+    // Restore missing state
     const [dueDate, setDueDate] = useState<Date>(todo.due_date ? new Date(todo.due_date) : new Date());
     const [isSaving, setIsSaving] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const tomorrowStr = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    })();
+    const initialDate = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d;
+    })();
+    const [dialogConfig, setDialogConfig] = useState<{
+        visible: boolean;
+        title: string;
+        message?: string;
+        actions?: any[];
+    }>({ visible: false, title: '' });
+
+    const closeDialog = () => setDialogConfig(prev => ({ ...prev, visible: false }));
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -36,40 +63,42 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
             navigation.goBack();
         } catch (e) {
             console.error(e);
-            Alert.alert("Error", "Failed to update task.");
+            setDialogConfig({
+                visible: true,
+                title: "Error",
+                message: "Failed to update task.",
+                actions: [{ text: "OK", onPress: closeDialog }]
+            });
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleDelete = async () => {
-        const doDelete = async () => {
-            try {
-                await api.deleteTodo(todo.id);
-                navigation.goBack();
-            } catch (e) {
-                console.error('Delete failed:', e);
-                if (Platform.OS === 'web') {
-                    window.alert("Failed to delete task.");
-                } else {
-                    Alert.alert("Error", "Failed to delete task.");
-                }
-            }
-        };
+    const handleDelete = () => {
+        setDialogConfig({
+            visible: true,
+            title: "Delete Task",
+            message: "Are you sure you want to delete this task?",
+            actions: [
+                { text: "Cancel", style: "cancel", onPress: closeDialog },
+                { text: "Delete", style: "destructive", onPress: confirmDelete }
+            ]
+        });
+    };
 
-        if (Platform.OS === 'web') {
-            if (window.confirm("Are you sure you want to delete this task?")) {
-                await doDelete();
-            }
-        } else {
-            Alert.alert(
-                "Delete Task",
-                "Are you sure you want to delete this task?",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Delete", style: "destructive", onPress: doDelete }
-                ]
-            );
+    const confirmDelete = async () => {
+        closeDialog();
+        try {
+            await api.deleteTodo(todo.id);
+            navigation.goBack();
+        } catch (e) {
+            console.error('Delete failed:', e);
+            setDialogConfig({
+                visible: true,
+                title: "Error",
+                message: "Failed to delete task.",
+                actions: [{ text: "OK", onPress: closeDialog }]
+            });
         }
     };
 
@@ -79,141 +108,169 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <View style={styles.container}>
+        <ScreenLayout edges={['top']}>
+            <CustomDialog 
+                visible={dialogConfig.visible}
+                title={dialogConfig.title}
+                message={dialogConfig.message}
+                actions={dialogConfig.actions}
+                onClose={closeDialog}
+            />
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
+                <BackButton />
                 <Text style={styles.headerTitle}>Edit Task</Text>
                 <TouchableOpacity onPress={handleDelete}>
                     <Ionicons name="trash-outline" size={24} color={colors.error} />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                
-                {/* Status badge */}
-                {isCompleted && (
-                    <View style={styles.statusBanner}>
-                        <Ionicons name="checkmark-circle" size={20} color="#2E7D32" />
-                        <Text style={styles.statusText}>Task Completed</Text>
-                        <TouchableOpacity style={styles.undoBtn} onPress={handleMarkNotDone}>
-                            <Text style={styles.undoBtnText}>Mark Not Done</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+            <View style={{flex: 1}}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    
+                    {/* Status badge */}
+                    {isCompleted && (
+                        <View style={styles.statusBanner}>
+                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                            <Text style={styles.statusText}>Task Completed</Text>
+                            <TouchableOpacity style={styles.undoBtn} onPress={handleMarkNotDone}>
+                                <Text style={styles.undoBtnText}>Mark Not Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
-                {/* Title */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Task Title</Text>
-                    <TextInput 
-                        style={styles.input}
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholder="What needs to be done?"
-                        placeholderTextColor={colors.textLight}
-                    />
-                </View>
-
-                {/* Description */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Description</Text>
-                    <TextInput 
-                        style={[styles.input, styles.textArea]}
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder="Add details..."
-                        placeholderTextColor={colors.textLight}
-                        multiline
-                    />
-                </View>
-
-                {/* Progress */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Progress</Text>
-                    <View style={styles.progressSection}>
-                        <Text style={styles.progressValue}>{progress}%</Text>
-                        <AnimatedSlider 
-                            value={progress}
-                            onValueChange={(val: number) => {
-                                setProgress(val);
-                                if (val === 100) setIsCompleted(true);
-                                if (val < 100 && isCompleted) setIsCompleted(false);
-                            }}
-                            width={260}
+                    {/* Title */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Task Title</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={title}
+                            onChangeText={setTitle}
+                            placeholder="What needs to be done?"
+                            placeholderTextColor={colors.textLight}
                         />
                     </View>
-                </View>
 
-                {/* Due Date */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Due Date</Text>
-                    <MyDateTimePicker
-                        value={dueDate}
-                        onChange={(_event: any, selectedDate?: Date) => {
-                            if (selectedDate) setDueDate(selectedDate);
-                        }}
-                        mode="date"
-                    />
-                </View>
-
-                {/* Energy Level */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Energy Required</Text>
-                    <View style={styles.energyRow}>
-                        {['LOW', 'MEDIUM', 'HIGH'].map((level) => {
-                            const isSelected = energyLevel === level;
-                            let bg = colors.surface;
-                            let border = colors.border;
-                            let text = colors.textLight;
-                            let iconName = 'battery-charging-outline';
-
-                            if (level === 'LOW') { 
-                                iconName = 'leaf-outline';
-                                if(isSelected) { bg = '#E0F0E0'; border = '#4CAF50'; text = '#2E7D32'; }
-                            }
-                            if (level === 'MEDIUM') { 
-                                iconName = 'partly-sunny-outline';
-                                if(isSelected) { bg = '#FFF4E6'; border = '#FF9800'; text = '#EF6C00'; }
-                            }
-                            if (level === 'HIGH') { 
-                                iconName = 'flame-outline';
-                                if(isSelected) { bg = '#FFE0E0'; border = '#F44336'; text = '#C62828'; }
-                            }
-
-                            return (
-                                <TouchableOpacity 
-                                    key={level}
-                                    style={[styles.energyBtn, { backgroundColor: bg, borderColor: border }]}
-                                    onPress={() => setEnergyLevel(level as any)}
-                                >
-                                    <Ionicons name={iconName as any} size={18} color={text} style={{ marginBottom: 4 }} />
-                                    <Text style={[styles.energyText, { color: text, fontWeight: isSelected ? 'bold' : 'normal' }]}>
-                                        {level === 'LOW' ? 'Light' : level === 'MEDIUM' ? 'Medium' : 'Heavy'}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                    {/* Description */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Description</Text>
+                        <TextInput 
+                            style={[styles.input, styles.textArea]}
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="Add details..."
+                            placeholderTextColor={colors.textLight}
+                            multiline
+                        />
                     </View>
+
+                    {/* Progress */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Progress</Text>
+                        <View style={styles.progressSection}>
+                            <Text style={styles.progressValue}>{progress}%</Text>
+                            <Slider
+                                style={{ width: '100%', height: 40 }}
+                                value={progress}
+                                onValueChange={(v) => {
+                                    const stepped = Math.round(v / 5) * 5;
+                                    setProgress(stepped);
+                                    if (stepped === 100) setIsCompleted(true);
+                                    if (stepped < 100 && isCompleted) setIsCompleted(false);
+                                }}
+                                minimumValue={0}
+                                maximumValue={100}
+                                step={5}
+                                minimumTrackTintColor={colors.primary}
+                                maximumTrackTintColor={colors.border}
+                                thumbTintColor={colors.primary}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Due Date */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Due Date</Text>
+                        <TouchableOpacity 
+                            style={styles.dateBtn}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <Ionicons name="calendar-outline" size={20} color={colors.text} />
+                            <Text style={styles.dateText}>
+                                {dueDate.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={16} color={colors.textLight} style={{ marginLeft: 'auto' }} />
+                        </TouchableOpacity>
+
+                        <CustomDatePicker
+                            visible={showDatePicker}
+                            initialDate={initialDate}
+                            minDate={tomorrowStr}
+                            onClose={() => setShowDatePicker(false)}
+                            onConfirm={(date) => {
+                                setDueDate(date);
+                                setShowDatePicker(false);
+                            }}
+                            title="Set Due Date"
+                        />
+                    </View>
+
+                    {/* Energy Level */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Energy Required</Text>
+                        <View style={styles.energyRow}>
+                            {['LOW', 'MEDIUM', 'HIGH'].map((level) => {
+                                const isSelected = energyLevel === level;
+                                let bg = colors.surface;
+                                let border = colors.border;
+                                let text = colors.textLight;
+                                let iconName = 'battery-charging-outline';
+
+                                if (level === 'LOW') { 
+                                    iconName = 'leaf-outline';
+                                    if(isSelected) { bg = colors.mood.great; border = colors.primary; text = colors.primary; }
+                                }
+                                if (level === 'MEDIUM') { 
+                                    iconName = 'partly-sunny-outline';
+                                    if(isSelected) { bg = colors.mood.okay; border = colors.accentDark; text = colors.accentDark; }
+                                }
+                                if (level === 'HIGH') { 
+                                    iconName = 'flame-outline';
+                                    if(isSelected) { bg = colors.mood.pain; border = colors.error; text = colors.text; }
+                                }
+
+                                return (
+                                    <TouchableOpacity 
+                                        key={level}
+                                        style={[styles.energyBtn, { backgroundColor: bg, borderColor: border }]}
+                                        onPress={() => setEnergyLevel(level as any)}
+                                    >
+                                        <Ionicons name={iconName as any} size={18} color={text} style={{ marginBottom: 4 }} />
+                                        <Text style={[styles.energyText, { color: text, fontWeight: isSelected ? 'bold' : 'normal' }]}>
+                                            {level === 'LOW' ? 'Light' : level === 'MEDIUM' ? 'Medium' : 'Heavy'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+
+                <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
+                        <Text style={styles.saveBtnText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
+                    </TouchableOpacity>
                 </View>
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
-
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
-                    <Text style={styles.saveBtnText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
-                </TouchableOpacity>
             </View>
-        </View>
+        </ScreenLayout>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
-        paddingTop: spacing.xxl,
+        // Background and padding handled by ScreenLayout
     },
     header: {
         flexDirection: 'row',
@@ -221,6 +278,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: spacing.l,
         marginBottom: spacing.l,
+        paddingTop: spacing.m,
     },
     headerTitle: {
         ...typography.subheader,
@@ -232,7 +290,7 @@ const styles = StyleSheet.create({
     statusBanner: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#E8F5E9',
+        backgroundColor: colors.accentSoft,
         padding: spacing.m,
         borderRadius: borderRadius.m,
         marginBottom: spacing.l,
@@ -241,20 +299,20 @@ const styles = StyleSheet.create({
     statusText: {
         flex: 1,
         ...typography.bodyBold,
-        color: '#2E7D32',
+        color: colors.primary,
     },
     undoBtn: {
-        backgroundColor: '#FFF',
+        backgroundColor: colors.surface,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: borderRadius.s,
         borderWidth: 1,
-        borderColor: '#C8E6C9',
+        borderColor: colors.border,
     },
     undoBtnText: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#2E7D32',
+        color: colors.primary,
     },
     inputGroup: {
         marginBottom: spacing.l,
@@ -271,7 +329,8 @@ const styles = StyleSheet.create({
         padding: spacing.m,
         fontSize: 16,
         color: colors.text,
-        ...shadows.soft,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     textArea: {
         height: 120,
@@ -282,7 +341,8 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: borderRadius.m,
         padding: spacing.l,
-        ...shadows.soft,
+        borderWidth: 1,
+        borderColor: colors.border,
         gap: spacing.m,
     },
     progressValue: {
@@ -309,9 +369,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         padding: spacing.l,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
     },
     saveBtn: {
         backgroundColor: colors.primary,
@@ -321,8 +379,23 @@ const styles = StyleSheet.create({
         ...shadows.glow,
     },
     saveBtnText: {
-        color: '#FFF',
+        color: colors.buttonPrimaryText,
         fontWeight: 'bold',
         fontSize: 18,
+    },
+    dateBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.m,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: borderRadius.m,
+        gap: spacing.m,
+    },
+    dateText: {
+        ...typography.body,
+        color: colors.text,
+        fontWeight: '500',
     }
 });

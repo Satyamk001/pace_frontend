@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
-import { colors, typography, spacing, shadows } from '../theme';
+import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
 import { createApiService } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { TaskItem } from '../components/TaskItem';
 import { MascotCorner } from '../components/MascotCorner';
 import { CompletionModal } from '../components/CompletionModal';
 import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
+import { useMoodTheme } from '../context/MoodContext';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
 
 export const HomeScreen = ({ navigation }: any) => {
   const { getToken, signOut } = useAuth();
@@ -31,7 +33,7 @@ export const HomeScreen = ({ navigation }: any) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const [todosData, logData] = await Promise.all([
-        api.getTodos(),
+        api.getTodos(today),
         api.getDailyLog(today)
       ]);
       setTodos(todosData);
@@ -81,8 +83,19 @@ export const HomeScreen = ({ navigation }: any) => {
       }
   };
 
+  // Sync with Global Context
+  const { setMood, moodColor } = useMoodTheme();
+
+  // On Mount: If mood exists in log, sync to context
+  useEffect(() => {
+     if (dailyLog?.mood) {
+         setMood(dailyLog.mood); // Sync loaded mood to global context
+     }
+  }, [dailyLog, setMood]);
+
   const handleMoodSelect = async (moodId: string) => {
       setSelectedMood(moodId);
+      setMood(moodId); // Update global theme instantly
       try {
           const today = new Date().toISOString().split('T')[0];
           await api.logDay(today, undefined, moodId);
@@ -115,85 +128,90 @@ export const HomeScreen = ({ navigation }: any) => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 6)  return { text: "Good Night",     sub: "Rest well, recharge your mind.",          icon: "moon" as const,         iconColor: '#6C63FF' };
-    if (hour < 12) return { text: "Good Morning",   sub: "A fresh start awaits you today!",         icon: "sunny" as const,        iconColor: '#F59E0B' };
-    if (hour < 17) return { text: "Good Afternoon",  sub: "Keep going, you're doing great!",        icon: "partly-sunny" as const, iconColor: '#FB923C' };
-    if (hour < 21) return { text: "Good Evening",    sub: "Wind down and reflect on your day.",     icon: "moon" as const,         iconColor: '#8B5CF6' };
-    return                 { text: "Good Night",     sub: "Rest well, recharge your mind.",          icon: "moon" as const,         iconColor: '#6C63FF' };
+    if (hour < 6)  return { text: "Good Night",     sub: "Rest well, recharge your mind.",          icon: "moon" as const,         iconColor: colors.primary };
+    if (hour < 12) return { text: "Good Morning",   sub: "A fresh start awaits you today!",         icon: "sunny" as const,        iconColor: colors.warning };
+    if (hour < 17) return { text: "Good Afternoon",  sub: "Keep going, you're doing great!",        icon: "partly-sunny" as const, iconColor: colors.accent };
+    if (hour < 21) return { text: "Good Evening",    sub: "Wind down and reflect on your day.",     icon: "moon" as const,         iconColor: colors.primary };
+    return                 { text: "Good Night",     sub: "Rest well, recharge your mind.",          icon: "moon" as const,         iconColor: colors.primary };
   };
 
   const greeting = getGreeting();
 
   return (
-    <View style={styles.container}>
-      {/* Fixed Header */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.headerContainer}>
-            {/* Back button removed for Home Screen */}
-            <View style={styles.greetingIconWrap}>
-                <Ionicons name={greeting.icon} size={22} color={greeting.iconColor} />
+      <ScreenLayout edges={['top']}>
+        {/* Fixed Header */}
+        <View style={styles.fixedHeader}>
+            <View style={styles.headerContainer}>
+                {/* Greeting */}
+                <View style={styles.greetingIconWrap}>
+                    <Ionicons name={greeting.icon} size={24} color={greeting.iconColor} />
+                </View>
+                <View style={{flex: 1}}>
+                    <Text style={styles.greeting}>{greeting.text}</Text>
+                    <Text style={styles.subGreeting}>{greeting.sub}</Text>
+                </View>
+                
+                {/* Add Button */}
+                <TouchableOpacity onPress={() => navigation.navigate('AddTask')} style={styles.addBtn}>
+                    <Ionicons name="add" size={24} color={colors.surface} />
+                </TouchableOpacity>
             </View>
-            <View style={{flex: 1}}>
-                <Text style={styles.greeting}>{greeting.text}</Text>
-                <Text style={styles.subGreeting}>{greeting.sub}</Text>
+
+            <View style={{ marginBottom: spacing.l }}>
+                <MoodSelector onSelectMood={handleMoodSelect} selectedMood={selectedMood} />
+            </View>
+
+            <HealthBanner 
+                status={dailyLog?.day_type || 'NORMAL'}
+                mood={selectedMood}
+                onPressAction={() => navigation.navigate('HealthCheckIn')}
+            />
+
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Today's Plan</Text>
             </View>
         </View>
 
-        <View style={{ marginBottom: spacing.l }}>
-            <MoodSelector onSelectMood={handleMoodSelect} selectedMood={selectedMood} />
-        </View>
-
-        <HealthBanner 
-            status={dailyLog?.day_type || 'NORMAL'}
-            mood={selectedMood}
-            onPressAction={() => navigation.navigate('HealthCheckIn')}
-        />
-
-        <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Tasks</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('AddTask')}>
-                <Ionicons name="add-circle" size={32} color={colors.primary} />
-            </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Scrollable Task List */}
-      <ScrollView 
-        contentContainerStyle={styles.taskListContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {loading ? (
-          <TaskListSkeleton count={5} />
-        ) : sortedTodos.length === 0 ? (
-          <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No tasks yet. Take a breath.</Text>
-          </View>
-        ) : (
-          sortedTodos.map((todo) => (
-              <TaskItem 
-                  key={todo.id}
-                  title={todo.title}
-                  isCompleted={todo.is_completed}
-                  energyLevel={todo.energy_level}
-                  progress={todo.progress}
-                  onPress={() => {
-                      if (todo.is_completed) {
-                          navigation.navigate('TaskDetail', { todo });
-                      } else {
-                          setToggleTarget(todo);
-                          setCompletionModalVisible(true);
-                      }
-                  }}
-                  onToggle={() => {
-                       setToggleTarget(todo);
-                       setCompletionModalVisible(true);
-                  }}
-              />
-          ))
-        )}
-        <View style={{height: 100}} />
-      </ScrollView>
+        {/* Scrollable Task List */}
+        <ScrollView 
+            contentContainerStyle={styles.taskListContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+            {loading ? (
+            <TaskListSkeleton count={5} />
+            ) : sortedTodos.length === 0 ? (
+            <View style={styles.emptyState}>
+                <Ionicons name="leaf-outline" size={32} color={colors.palette.mint} style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyText}>Current cleared. Time to breathe.</Text>
+            </View>
+            ) : (
+            sortedTodos.map((todo, index) => (
+                <TaskItem 
+                    key={todo.id}
+                    index={index}
+                    title={todo.title}
+                    isCompleted={todo.is_completed}
+                    energyLevel={todo.energy_level}
+                    progress={todo.progress}
+                    startTime={todo.due_date ? new Date(todo.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : undefined}
+                    onPress={() => {
+                        if (todo.is_completed) {
+                            navigation.navigate('TaskDetail', { todo });
+                        } else {
+                            setToggleTarget(todo);
+                            setCompletionModalVisible(true);
+                        }
+                    }}
+                    onToggle={() => {
+                        setToggleTarget(todo);
+                        setCompletionModalVisible(true);
+                    }}
+                />
+            ))
+            )}
+            <View style={{height: 100}} />
+        </ScrollView>
 
       {/* Completion Modal */}
       <CompletionModal
@@ -220,21 +238,21 @@ export const HomeScreen = ({ navigation }: any) => {
       />
 
       <MascotCorner mood="HAPPY" onPress={() => console.log("Mascot clicked!")} />
-    </View>
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    // Background handled by ScreenLayout
   },
   fixedHeader: {
-    paddingTop: spacing.l,
-    backgroundColor: colors.background,
+    paddingTop: spacing.m,
+    backgroundColor: colors.background, // Make transparent for gradient
   },
   taskListContent: {
-    paddingHorizontal: spacing.l,
+    paddingHorizontal: 0, // Cards have own padding
     paddingTop: spacing.s,
     flexGrow: 1,
   },
@@ -246,27 +264,33 @@ const styles = StyleSheet.create({
       gap: spacing.m,
   },
   greetingIconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      backgroundColor: colors.surface,
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.6)', // Glassy
       alignItems: 'center',
       justifyContent: 'center',
       ...shadows.soft,
   },
-  backBtn: {
-      marginRight: spacing.m,
-      padding: 4,
-  },
   greeting: {
       ...typography.header,
       color: colors.text,
-      fontSize: 22,
+      fontSize: 24,
   },
   subGreeting: {
       ...typography.caption,
-      color: colors.textLight,
+      color: colors.textPrimary,
       marginTop: 2,
+      opacity: 0.8
+  },
+  addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.glow
   },
   sectionHeader: {
       flexDirection: 'row',
@@ -274,26 +298,22 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       paddingHorizontal: spacing.l,
       marginBottom: spacing.s,
-      marginTop: spacing.s,
+      marginTop: spacing.xs,
   },
   sectionTitle: {
       ...typography.subheader,
       color: colors.text,
+      fontSize: 18
   },
   emptyState: {
       padding: spacing.xl,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 24,
-      marginTop: spacing.m,
-      borderStyle: 'dashed',
-      borderWidth: 1,
-      borderColor: colors.border,
+      marginTop: spacing.l,
   },
   emptyText: {
       ...typography.body,
-      color: colors.textLight,
+      color: colors.textSecondary,
       fontStyle: 'italic',
   },
 });

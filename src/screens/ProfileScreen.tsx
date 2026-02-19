@@ -1,18 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, RefreshControl, Switch, ActivityIndicator } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { colors, typography, spacing, shadows, borderRadius } from '../theme';
+import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
 import { MascotAvatar } from '../components/MascotAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
-import { ProfileSkeleton } from '../components/ui/SkeletonLoader';
+import { ProfileSkeleton, ProfileSettingsSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
+import { CustomDialog } from '../components/ui/CustomDialog';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { BackButton } from '../components/ui/BackButton';
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { signOut, getToken } = useAuth();
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const api = createApiService(getToken);
-    const { isLoaded } = useUser();
 
     const [stats, setStats] = useState({
         streak: 0,
@@ -21,6 +23,16 @@ export const ProfileScreen = ({ navigation }: any) => {
     });
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    
+    // Dialog State
+    const [dialogConfig, setDialogConfig] = useState<{
+        visible: boolean;
+        title: string;
+        message?: string;
+        actions?: any[];
+    }>({ visible: false, title: '' });
+
+    const closeDialog = () => setDialogConfig(prev => ({ ...prev, visible: false }));
 
     const fetchStats = async () => {
         try {
@@ -48,10 +60,15 @@ export const ProfileScreen = ({ navigation }: any) => {
     );
 
     const handleSignOut = () => {
-        Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Sign Out", style: "destructive", onPress: () => signOut() }
-        ]);
+        setDialogConfig({
+            visible: true,
+            title: "Sign Out",
+            message: "Are you sure you want to sign out?",
+            actions: [
+                { text: "Cancel", style: "cancel", onPress: closeDialog },
+                { text: "Sign Out", style: "destructive", onPress: () => { closeDialog(); signOut(); } }
+            ]
+        });
     };
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -62,64 +79,107 @@ export const ProfileScreen = ({ navigation }: any) => {
         // Simulate sync
         setTimeout(() => {
             setIsSyncing(false);
-            Alert.alert("Sync Complete", "Your data is backed up safely! ☁️");
+            setDialogConfig({
+                visible: true,
+                title: "Sync Complete",
+                message: "Your data is backed up safely! ☁️",
+                actions: [{ text: "OK", onPress: closeDialog }]
+            });
         }, 2000);
     };
 
     const handleExport = () => {
-        Alert.alert("Export Data", "Preparing your data...", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Download", onPress: () => Alert.alert("Success", "Data exported to CSV.") }
-        ]);
+        setDialogConfig({
+            visible: true,
+            title: "Export Data",
+            message: "Preparing your data for export...",
+            actions: [
+                { text: "Cancel", style: "cancel", onPress: closeDialog },
+                { text: "Download", onPress: () => {
+                    closeDialog();
+                    // Simulate download success strictly after
+                    setTimeout(() => {
+                        setDialogConfig({
+                            visible: true,
+                            title: "Success",
+                            message: "Data exported to CSV.",
+                            actions: [{ text: "OK", onPress: closeDialog }]
+                        });
+                    }, 500);
+                }}
+            ]
+        });
     };
 
     const handlePrivacy = () => {
-        Alert.alert(
-            "Privacy Policy",
-            "We value your privacy. \n\n1. Your data is yours.\n2. We don't sell your data.\n3. Health data is encrypted.",
-            [{ text: "Got it" }]
-        );
+        setDialogConfig({
+            visible: true,
+            title: "Privacy Policy",
+            message: "We value your privacy. \n\n1. Your data is yours.\n2. We don't sell your data.\n3. Health data is encrypted.",
+            actions: [{ text: "Got it", onPress: closeDialog }]
+        });
     };
 
     const toggleSwitch = () => setNotificationsEnabled(previousState => !previousState);
 
-    if (!isLoaded || loading) {
+    if (!isLoaded) {
         return <ProfileSkeleton />;
     }
 
     return (
-        <View style={styles.container}>
+        <ScreenLayout edges={['top']}>
+            <CustomDialog 
+                visible={dialogConfig.visible}
+                title={dialogConfig.title}
+                message={dialogConfig.message}
+                actions={dialogConfig.actions}
+                onClose={closeDialog}
+            />
             {/* Fixed Header */}
             <View style={styles.fixedHeader}>
                 <View style={styles.headerTopRow}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Ionicons name="arrow-back" size={24} color={colors.text} />
-                    </TouchableOpacity>
+                    <BackButton style={styles.backBtn} />
                 </View>
                 <MascotAvatar size="large" imageUrl={user?.imageUrl} />
                 <Text style={styles.userName}>{user?.fullName || "Pace User"}</Text>
                 <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
 
+
                 <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                         <Ionicons name="flame" size={24} color={colors.primary} style={{marginBottom: 4}} />
-                        <Text style={styles.statValue}>{stats.streak}</Text>
+                        {loading ? (
+                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
+                        ) : (
+                             <Text style={styles.statValue}>{stats.streak}</Text>
+                        )}
                         <Text style={styles.statLabel}>Day Streak</Text>
                     </View>
                     <View style={[styles.statItem, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.border }]}>
-                        <Ionicons name="checkmark-circle" size={24} color={colors.secondary} style={{marginBottom: 4}} />
-                        <Text style={styles.statValue}>{stats.totalTasks}</Text>
+                        <Ionicons name="checkmark-circle" size={24} color={colors.accent} style={{marginBottom: 4}} />
+                        {loading ? (
+                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
+                        ) : (
+                             <Text style={styles.statValue}>{stats.totalTasks}</Text>
+                        )}
                         <Text style={styles.statLabel}>Tasks Done</Text>
                     </View>
                     <View style={styles.statItem}>
                         <Ionicons name="leaf" size={24} color={colors.accent} style={{marginBottom: 4}} />
-                        <Text style={styles.statValue}>{stats.calmDays}</Text>
+                        {loading ? (
+                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
+                        ) : (
+                             <Text style={styles.statValue}>{stats.calmDays}</Text>
+                        )}
                         <Text style={styles.statLabel}>Calm Days</Text>
                     </View>
                 </View>
             </View>
 
             {/* Scrollable Content */}
+            {loading ? (
+                <ProfileSettingsSkeleton />
+            ) : (
             <ScrollView 
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -153,7 +213,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                             <Text style={styles.settingLabel}>Notifications</Text>
                         </View>
                         <Switch
-                            trackColor={{ false: colors.border, true: colors.secondary }}
+                            trackColor={{ false: colors.border, true: colors.accent }}
                             thumbColor={colors.surface}
                             ios_backgroundColor={colors.border}
                             onValueChange={toggleSwitch}
@@ -203,18 +263,19 @@ export const ProfileScreen = ({ navigation }: any) => {
 
             <View style={{height: 100}} />
             </ScrollView>
-        </View>
+            )}
+        </ScreenLayout>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        // Background handled by ScreenLayout
     },
     fixedHeader: {
         alignItems: 'center',
-        paddingTop: spacing.xl,
+        paddingTop: spacing.m,
         paddingBottom: spacing.m,
         backgroundColor: colors.surface,
         borderBottomLeftRadius: 32,
@@ -267,29 +328,31 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginHorizontal: spacing.l,
-        backgroundColor: '#FFF9E6',
+        backgroundColor: '#FFFBF0', // Soft gold tint
         borderRadius: borderRadius.l,
         padding: spacing.m,
         marginBottom: spacing.l,
+        marginTop: spacing.l,
         borderWidth: 1,
-        borderColor: '#FFD700',
+        borderColor: colors.premium + '40',
     },
     premiumIcon: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#DAA520',
+        backgroundColor: colors.premium,
         justifyContent: 'center',
         alignItems: 'center',
     },
     premiumTitle: {
         fontWeight: 'bold',
-        color: '#DAA520',
+        color: colors.premium,
         fontSize: 16,
     },
     premiumSubtitle: {
         fontSize: 12,
-        color: '#B8860B',
+        color: colors.premium,
+        opacity: 0.8,
     },
     section: {
         paddingHorizontal: spacing.l,

@@ -47,7 +47,7 @@ export const SplashScreen = ({ onFinish }: SplashScreenProps) => {
     <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
       <View style={styles.centerContent}>
         <Animated.Image
-          source={require('../../assets/Logo.png')}
+          source={require('../../assets/splash-icon.png')}
           style={[
             styles.logo,
             {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
   },
   logo: {
-    width: 150, // Base size
-    height: 150,
+    width: 350, // Base size
+    height: 350,
   },
 });

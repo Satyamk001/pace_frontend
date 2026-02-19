@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, Touchab
 import { useAuth } from '@clerk/clerk-expo';
 import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
-import { LineChart } from 'react-native-chart-kit';
+import { HealthTrendsChart } from '../components/HealthTrendsChart';
 import { useFocusEffect } from '@react-navigation/native';
-import { InsightCard } from '../components/InsightCard';
 import { MascotCorner } from '../components/MascotCorner';
-import { StatsSkeleton } from '../components/ui/SkeletonLoader';
+import { StatsContentSkeleton } from '../components/ui/SkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -19,143 +19,134 @@ const RANGE_OPTIONS = [
     { label: '1Y', value: '365' },
 ];
 
+
 export const StatsScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
   const api = createApiService(getToken);
   
-  const [stats, setStats] = useState<any>(null);
+  // Data State
+  const [graphData, setGraphData] = useState<any>(null);
+  const [summaryData, setSummaryData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Filter State
   const [selectedRange, setSelectedRange] = useState('30');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const fetchStats = async () => {
+  // Navigation Logic
+  const goToPrevMonth = () => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() - 1);
+    setCurrentDate(newDate);
+  };
+
+  const goToNextMonth = () => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + 1);
+    // Prevent future navigation check
+    const today = new Date();
+    if (newDate > today) return; 
+    
+    setCurrentDate(newDate);
+  };
+
+  const canGoNext = (() => {
+      const today = new Date();
+      const testDate = new Date(currentDate);
+      testDate.setMonth(testDate.getMonth() + 1);
+      return testDate <= today || (today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear()); 
+      // Actually strictly: disable if current view IS current month
+      return !(currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear());
+  })();
+
+  // 1. Fetch Graph Data (Always 1 Year to support Month Nav)
+  // We fetch 365 days to allow local filtering by month without re-fetching
+  const fetchGraphStats = async () => {
     try {
-      const data = await api.getStats(selectedRange);
-      setStats(data);
+      const data = await api.getStats('365');
+      setGraphData(data);
     } catch (e) {
-      console.error('Failed to fetch stats:', e);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch graph stats:', e);
     }
+  };
+
+  // 2. Fetch Summary Data (Based on Selected Range)
+  const fetchSummaryStats = async () => {
+      try {
+          const data = await api.getStats(selectedRange);
+          setSummaryData(data);
+      } catch (e) {
+          console.error('Failed to fetch summary stats:', e);
+      }
+  };
+
+  // Combined Load
+  const loadAll = async () => {
+      setLoading(true);
+      await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
+      setLoading(false);
   };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchStats();
+    await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
     setRefreshing(false);
-  }, [selectedRange]);
+  }, [selectedRange, currentDate]); // Refresh should respect current selections if possible, or reset? Usually keep.
 
+  // Initial Load
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      fetchStats();
-    }, [selectedRange])
+      loadAll();
+    }, [])
   );
 
-  // Compute derived values from real data
-  const summary = stats?.summary || {};
-  const healthData = stats?.history?.health || [];
+  // Update Summary when Range Changes
+  useEffect(() => {
+      fetchSummaryStats();
+  }, [selectedRange]);
 
-  // Calculate avg pain from health history
-  const avgPain = healthData.length > 0 
-    ? (healthData.reduce((sum: number, h: any) => sum + (h.pain_level || 0), 0) / healthData.length).toFixed(1)
-    : '—';
+  // --- Graph Logic (Uses graphData) ---
 
-  // Calculate avg fatigue from health history
-  const avgFatigue = healthData.length > 0
-    ? (healthData.reduce((sum: number, h: any) => sum + (h.fatigue_level || 0), 0) / healthData.length).toFixed(1)
-    : '—';
+  // --- Graph Logic (Uses graphData) ---
 
-  // Completion rate & Counts
-  const totalTasks = summary.totalTasks || 0;
-  const calmDays = summary.calmDays || 0;
-  const painDays = summary.painDays || 0;
-  const streak = summary.streak || 0;
-
-  // Build chart data from real health history
   const getChartData = () => {
-      if (!healthData || healthData.length === 0) return { labels: [], datasets: [{ data: [0] }] };
+      if (!graphData?.history?.health) return [];
       
-      // Sample data points for readability (aim for ~6-8 labels on X axis)
-      // For 365 days, step ~45. For 30 days, step ~5.
-      const targetLabels = 6;
-      const step = Math.ceil(healthData.length / targetLabels);
-      
-      const labels = healthData
-          .filter((_: any, i: number) => i % step === 0)
-          .map((h: any) => {
-              const d = new Date(h.date);
-              return `${d.getMonth()+1}/${d.getDate()}`;
-          });
+      const healthData = graphData.history.health;
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
 
-      const painData = healthData.map((h: any) => h.pain_level || 0);
-      const fatigueData = healthData.map((h: any) => h.fatigue_level || 0);
+      // Find logs for this specific month
+      const logsInMonth = healthData.filter((h: any) => {
+          const logDate = new Date(h.date);
+          return logDate.getMonth() === month && logDate.getFullYear() === year;
+      });
 
-      // Downsample data if too huge for performance (ChartKit can lag with 365 points)
-      // Ensure we match the labels length roughly or just pass full data if ChartKit handles it (it draws bezier)
-      // ChartKit needs `data` array length to match `labels` if used strictly, but for Bezier it often interpolates. 
-      // Safest: pass full data for lines, but labels are just X-axis strings.
-      // Actually ChartKit behaves best when data points align. Let's just pass all points for the line 
-      // but we need to match dataset length to labels length? No, labels are just string ticks.
-      // WAIT: ChartKit maps data[i] to label[i]. If lengths mismatch, it looks weird.
-      // So we MUST downsample the data points to match the labels if we want them aligned.
-      
-      const sampledData = healthData.filter((_: any, i: number) => i % step === 0);
-      const sampledPain = sampledData.map((h: any) => h.pain_level || 0);
-      const sampledFatigue = sampledData.map((h: any) => h.fatigue_level || 0);
+      // Get days in month
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-      return {
-          labels,
-          datasets: [
-              {
-                  data: sampledPain,
-                  color: (opacity = 1) => `rgba(239, 83, 80, ${opacity})`, // Error/Red for pain
-                  strokeWidth: 2
-              },
-              {
-                  data: sampledFatigue,
-                  color: (opacity = 1) => `rgba(66, 165, 245, ${opacity})`, // Blue for fatigue
-                  strokeWidth: 2
-              }
-          ],
-          legend: ["Pain", "Fatigue"]
-      };
+      return Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const log = logsInMonth.find((h: any) => new Date(h.date).getDate() === day);
+          const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+
+          return {
+              day: day, 
+              pain: log?.pain_level ?? 0,
+              fatigue: log?.fatigue_level ?? 0,
+              hasData: !!log,
+              isToday: isToday
+          };
+      });
   };
 
-  const chartConfig = {
-      backgroundGradientFrom: colors.surface,
-      backgroundGradientTo: colors.surface,
-      color: (opacity = 1) => colors.primary,
-      strokeWidth: 2,
-      barPercentage: 0.5,
-      useShadowColorFromDataset: false,
-      decimalPlaces: 0,
-      labelColor: (opacity = 1) => colors.textLight,
-      propsForDots: {
-          r: "3",
-          strokeWidth: "1",
-          stroke: colors.surface
-      },
-      fillShadowGradientFrom: colors.surface,
-      fillShadowGradientTo: colors.surface,
-  };
-
-  const getRangeLabel = () => {
-      switch(selectedRange) {
-          case '7': return 'Past 7 Days';
-          case '30': return 'Past 30 Days';
-          case '90': return 'Past 3 Months';
-          case '365': return 'Past Year';
-          default: return 'Selected Period';
-      }
-  };
-
-  if (loading && !stats) {
-    return <StatsSkeleton />;
-  }
+  const chartData = getChartData();
+  const hasData = chartData.some(d => d.hasData);
+  const summary = summaryData?.summary || {};
 
   return (
-    <View style={styles.container}>
+    <ScreenLayout edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Insights</Text>
       </View>
@@ -174,217 +165,278 @@ export const StatsScreen = ({ navigation }: any) => {
           ))}
       </View>
 
+      {loading ? (
+        <StatsContentSkeleton />
+      ) : (
       <ScrollView 
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Row 1: Tasks & Streak */}
-        <View style={styles.cardRow}>
-            <View style={styles.cardHalf}>
-                <InsightCard 
-                    title="Tasks Done" 
-                    value={totalTasks}
-                    subtitle={getRangeLabel()}
-                    icon={<Ionicons name="checkbox" size={20} color={colors.secondary} />}
-                    color={colors.secondary}
-                />
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+            <View style={styles.statsRow}>
+                <View style={styles.statsItem}>
+                    <Text style={styles.statsValue}>{summary.totalTasks || 0}</Text>
+                    <Text style={styles.statsLabel}>Tasks Done</Text>
+                </View>
+                <View style={styles.statsItem}>
+                    <Text style={styles.statsValue}>{summary.streak || 0}🔥</Text>
+                    <Text style={styles.statsLabel}>Streak</Text>
+                </View>
             </View>
-            <View style={styles.cardHalf}>
-                <InsightCard 
-                    title="Streak" 
-                    value={`${streak} 🔥`}
-                    subtitle="Consecutive"
-                    icon={<Ionicons name="flame" size={20} color="#FF6B35" />}
-                    color="#FF6B35"
-                />
+            <View style={styles.statsDivider} />
+            <View style={styles.statsRow}>
+                <View style={styles.statsItem}>
+                    <Text style={[styles.statsValue, {color: colors.success}]}>{summary.calmDays || 0}</Text>
+                    <Text style={styles.statsLabel}>Calm Days</Text>
+                </View>
+                <View style={styles.statsItem}>
+                    <Text style={[styles.statsValue, {color: colors.error}]}>{summary.painDays || 0}</Text>
+                    <Text style={styles.statsLabel}>Pain Days</Text>
+                </View>
             </View>
         </View>
 
-        {/* Row 2: Calm Days & Pain Days (New) */}
-        <View style={styles.cardRow}>
-            <View style={styles.cardHalf}>
-                <InsightCard 
-                    title="Calm Days" 
-                    value={calmDays}
-                    subtitle="No flare-ups"
-                    icon={<Ionicons name="leaf" size={20} color={colors.success} />}
-                    color={colors.success}
-                />
+                {/* Journal Bar Chart */}
+            <View style={styles.chartCard}>
+                
+                {/* Chart Header - Month Navigation */}
+                <View style={styles.chartHeader}>
+                    <View>
+                        <Text style={styles.chartTitle}>Health Trends</Text>
+                        <Text style={styles.chartSubtitle}>
+                            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </Text>
+                    </View>
+                    <View style={styles.monthNav}>
+                        <TouchableOpacity 
+                            onPress={goToPrevMonth}
+                            style={styles.navBtn}
+                        >
+                            <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={goToNextMonth}
+                            disabled={!canGoNext}
+                            style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
+                        >
+                            <Ionicons name="chevron-forward" size={20} color={!canGoNext ? colors.border : colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                
+                {/* Chart Content */}
+                {hasData ? (
+                    <View style={styles.chartContainer}>
+                        <HealthTrendsChart data={chartData} />
+                    </View>
+                ) : (
+                    <View style={styles.noDataChart}>
+                        <Ionicons name="journal-outline" size={32} color={colors.textLight} />
+                        <Text style={styles.noDataText}>No Data</Text>
+                        <Text style={styles.noDataHint}>
+                            No logs found for this period.
+                        </Text>
+                    </View>
+                )}
             </View>
-            <View style={styles.cardHalf}>
-                <InsightCard 
-                    title="Pain Days" 
-                    value={painDays}
-                    subtitle="High Pain (7+)"
-                    icon={<Ionicons name="alert-circle" size={20} color={colors.error} />}
-                    color={colors.error}
-                />
-            </View>
-        </View>
 
-        {/* Health Trends Chart */}
-        <View style={styles.chartCard}>
-            <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%'}}>
-                <View>
-                    <Text style={styles.chartTitle}>Health Trends</Text>
-                    <Text style={styles.chartSubtitle}>{getRangeLabel()}</Text>
-                </View>
-                <View style={{alignItems:'flex-end'}}>
-                   <Text style={{fontSize:10, color:colors.textLight}}>Avg Pain: {avgPain}</Text>
-                   <Text style={{fontSize:10, color:colors.textLight}}>Avg Fatigue: {avgFatigue}</Text>
-                </View>
-            </View>
-            
-            {healthData.length > 0 ? (
-                <LineChart
-                    data={getChartData()}
-                    width={screenWidth - 48} // Adjusted for padding
-                    height={220}
-                    chartConfig={chartConfig}
-                    bezier
-                    style={{
-                        marginVertical: 8,
-                        borderRadius: 16
-                    }}
-                    withInnerLines={true}
-                    withOuterLines={false}
-                    withVerticalLines={false}
-                    fromZero
-                />
-            ) : (
-                <View style={styles.noDataChart}>
-                    <Ionicons name="analytics-outline" size={48} color={colors.border} />
-                    <Text style={styles.noDataText}>No data for this period.</Text>
-                    <Text style={styles.noDataHint}>Log your daily health to see trends.</Text>
-                </View>
-            )}
-        </View>
-
-        {/* Premium Upsell */}
+        {/* Premium Upgrade */}
         <TouchableOpacity 
             style={styles.premiumCard}
             onPress={() => navigation.navigate('Premium')}
         >
-            <View>
-                <Text style={styles.premiumTitle}>Unlock Advanced Analytics</Text>
-                <Text style={styles.premiumSubtitle}>See correlations & extended history.</Text>
+            <View style={{flex: 1}}>
+                <Text style={styles.premiumTitle}>Unlock Advanced Analysis</Text>
+                <Text style={styles.premiumSubtitle}>Identify triggers, correlations & more.</Text>
             </View>
-            <Ionicons name="lock-closed" size={24} color="#DAA520" />
+            <View style={styles.premiumIcon}>
+                <Ionicons name="lock-closed" size={20} color={colors.premium} />
+            </View>
         </TouchableOpacity>
 
-        <View style={{height: 80}} />
+        <View style={{height: 100}} />
       </ScrollView>
+      )}
+
       <MascotCorner mood="SLEEPY" />
-    </View>
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: spacing.xxl,
+    // Background and safe area handled by ScreenLayout
   },
   header: {
       paddingHorizontal: spacing.l,
       marginBottom: spacing.m,
+      paddingTop: spacing.m,
   },
   headerTitle: {
       ...typography.header,
       color: colors.text,
   },
-  rangeSelector: {
+  monthNav: {
       flexDirection: 'row',
-      paddingHorizontal: spacing.l,
-      marginBottom: spacing.l,
-      gap: spacing.m,
+      alignItems: 'center',
+      gap: 8,
   },
-  rangeBtn: {
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
+  navBtn: {
+      padding: 8,
+      backgroundColor: colors.l2,
+      borderRadius: borderRadius.s,
+      ...shadows.level1,
   },
-  rangeBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-  },
-  rangeText: {
-      ...typography.caption,
-      fontWeight: 'bold',
-  },
-  rangeTextActive: {
-      color: '#FFF',
+  navBtnDisabled: {
+      opacity: 0.3,
+      ...shadows.soft, // flatter
   },
   content: {
       paddingHorizontal: spacing.l,
       paddingBottom: 100,
   },
-  cardRow: {
-      flexDirection: 'row',
-      gap: spacing.m,
-  },
-  cardHalf: {
-      flex: 1,
-  },
   chartCard: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.l1,
       borderRadius: borderRadius.l,
-      padding: spacing.l,
+      padding: spacing.m, 
       marginBottom: spacing.m,
-      ...shadows.soft,
-      alignItems: 'center'
+      ...shadows.level1,
+      borderWidth: 1,
+      borderColor: colors.border + '30', 
+  },
+  chartHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.s,
+      paddingHorizontal: spacing.xs
   },
   chartTitle: {
       ...typography.bodyBold,
-      alignSelf: 'flex-start',
-      color: colors.text
+      color: colors.text,
+      fontSize: 15,
   },
   chartSubtitle: {
       ...typography.caption,
-      alignSelf: 'flex-start',
-      color: colors.textLight,
-      marginBottom: spacing.m,
+      color: colors.textSecondary,
+      marginTop: 2,
+      fontWeight: '600'
+  },
+  chartContainer: {
+     alignItems: 'center',
+     justifyContent: 'center',
+     overflow: 'hidden',
   },
   noDataChart: {
-      height: 150,
+      height: 180,
       justifyContent: 'center',
       alignItems: 'center',
-      gap: spacing.s,
+      gap: 8,
+      opacity: 0.6
   },
   noDataText: {
-      color: colors.textLight,
-      fontStyle: 'italic',
-      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: '600'
   },
   noDataHint: {
       ...typography.caption,
       color: colors.textLight,
-      textAlign: 'center',
+  },
+  statsGrid: {
+      flexDirection: 'column',
+      backgroundColor: colors.l1,
+      borderRadius: borderRadius.l,
+      padding: spacing.m,
+      marginBottom: spacing.l,
+      ...shadows.level1,
+  },
+  statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+  },
+  statsDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      opacity: 0.1,
+      marginVertical: spacing.m,
+  },
+  statsItem: {
+      alignItems: 'center',
+      flex: 1,
+  },
+  statsValue: {
+      ...typography.header,
+      fontSize: 24,
+      color: colors.text,
+      marginBottom: 4
+  },
+  statsLabel: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      fontWeight: '600'
   },
   premiumCard: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      backgroundColor: '#FFFBE6',
+      backgroundColor: colors.l2,
       padding: spacing.l,
       borderRadius: borderRadius.l,
       marginTop: spacing.s,
       borderWidth: 1,
-      borderColor: '#FFD700',
+      borderColor: colors.premium + '40',
       borderStyle: 'dashed'
   },
   premiumTitle: {
       fontWeight: 'bold',
-      color: '#DAA520',
-      fontSize: 16
+      color: colors.premium,
+      fontSize: 15
   },
   premiumSubtitle: {
       ...typography.caption,
-      color: '#B8860B',
+      color: colors.premium,
+      opacity: 0.8,
       marginTop: 2
-  }
+  },
+  premiumIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.premium + '20',
+      alignItems: 'center',
+      justifyContent: 'center'
+  },
+  // Styles
+  rangeSelector: {
+      flexDirection: 'row',
+      backgroundColor: colors.l1, 
+      borderRadius: borderRadius.m,
+      padding: 4,
+      marginHorizontal: spacing.l,
+      marginBottom: spacing.l,
+  },
+  rangeBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: borderRadius.s,
+  },
+  rangeBtnActive: {
+      backgroundColor: colors.l0, 
+      ...shadows.level1,
+  },
+  rangeText: {
+      ...typography.caption,
+      fontWeight: '600',
+      color: colors.textSecondary,
+  },
+  rangeTextActive: {
+      color: colors.primary, 
+      fontWeight: '700',
+  },
 });

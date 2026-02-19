@@ -1,9 +1,13 @@
+import 'react-native-gesture-handler';
 import React from 'react';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
+import { ActionSheetProvider } from '@expo/react-native-action-sheet';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
+import { MoodProvider } from './src/context/MoodContext';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const tokenCache = {
   async getToken(key: string) {
@@ -40,9 +44,13 @@ export default function App() {
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
       <ClerkLoaded>
-        <SafeAreaProvider>
-          <MainAppContent />
-        </SafeAreaProvider>
+        <ActionSheetProvider>
+          <MoodProvider>
+            <SafeAreaProvider>
+              <MainAppContent />
+            </SafeAreaProvider>
+          </MoodProvider>
+        </ActionSheetProvider>
       </ClerkLoaded>
     </ClerkProvider>
   );
@@ -53,10 +61,12 @@ const MainAppContent = () => {
     
     return (
         <React.Fragment>
-            <AppNavigator />
-            {isSplashVisible && (
-                <SplashScreen onFinish={() => setIsSplashVisible(false)} />
-            )}
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <AppNavigator />
+                {isSplashVisible && (
+                    <SplashScreen onFinish={() => setIsSplashVisible(false)} />
+                )}
+            </GestureHandlerRootView>
         </React.Fragment>
     );
 };

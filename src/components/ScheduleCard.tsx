@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, shadows, borderRadius, typography, spacing } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
+import { ProgressBar } from './ui/ProgressBar';
 
 interface ScheduleCardProps {
     title: string;
@@ -27,58 +28,60 @@ export const ScheduleCard = ({
     onToggle
 }: ScheduleCardProps) => {
     
-    // Dynamic background based on progress (0-100)
-    const getProgressColor = (p: number) => {
-        if (p >= 76) return colors.success;    // #c7ce50 — Yellow-green (almost done)
-        if (p >= 51) return colors.success1;   // #83f884 — Bright green
-        if (p >= 26) return colors.success2;   // #99e29a — Medium green
-        if (p > 0)   return colors.success3;   // #beddbd — Light green (just started)
-        return colors.surface;                 // Default surface for 0%
-    };
-
-    const backgroundColor = getProgressColor(progress);
-    const isDark = progress === 0; // surface color needs dark text
-    const textColor = isDark ? colors.text : '#2D2D2D';
-    const subTextColor = isDark ? colors.textLight : 'rgba(45,45,45,0.6)';
+    const accentColor = color; 
+    
+    // Soft tint for completed state instead of grey opacity
+    const containerStyle = isCompleted 
+        ? { backgroundColor: colors.palette.mint + '15', borderColor: 'transparent' } // Soft Mint tint
+        : { backgroundColor: colors.surface };
 
     return (
         <TouchableOpacity style={styles.container} onPress={onPress}>
-            {/* Time Column & Timeline Line */}
-            <View style={styles.timeColumn}>
-                <Text style={styles.startTime}>{startTime}</Text>
-                <View style={styles.timelineLine} />
-                {endTime && <Text style={styles.endTime}>{endTime}</Text>}
+            {/* 1. Time Label (Above Card) */}
+            <View style={styles.timeRow}>
+                <Text style={styles.timeText}>
+                    {startTime}
+                    {endTime ? ` - ${endTime}` : ''}
+                </Text>
             </View>
 
-            {/* Card Content */}
-            <View style={[styles.card, { backgroundColor }]}>
+            {/* 2. Card Content */}
+            <View style={[styles.card, containerStyle]}>
+                
+                {/* Top Row: Title + Checkbox */}
                 <View style={styles.headerRow}>
-                    <View style={styles.badge}>
-                         <Text style={[styles.badgeText, { color: backgroundColor }]}>
-                             {type === 'MEETING' ? 'Mid' : type === 'BREAK' ? 'Low' : 'High'}
-                         </Text>
-                    </View>
+                    <Text style={[styles.title, isCompleted && styles.completedTitle]} numberOfLines={2}>
+                        {title}
+                    </Text>
                     
-                    {/* Completion Toggle */}
                     <TouchableOpacity onPress={onToggle} style={styles.checkbox}>
                         <Ionicons 
                             name={isCompleted ? "checkmark-circle" : "ellipse-outline"} 
                             size={24} 
-                            color={textColor} 
+                            color={isCompleted ? colors.success : colors.textLight} 
                         />
                     </TouchableOpacity>
                 </View>
 
-                <Text style={[styles.title, { color: textColor }, isCompleted && styles.completedText]} numberOfLines={2}>
-                    {title}
-                </Text>
-                
-                {/* Progress Bar Section - Always visible now */}
-                <View style={styles.progressContainer}>
-                    <View style={styles.progressBarTrack}>
-                        <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: textColor }]} />
+                {/* Bottom Row: Energy Badge + Progress */}
+                <View style={styles.footerRow}>
+                    {/* Energy Badge */}
+                    <View style={[styles.energyBadge, { backgroundColor: accentColor + '20' }]}>
+                        <Ionicons name="flash" size={10} color={accentColor} style={{ marginRight: 4 }} />
+                        <Text style={[styles.energyText, { color: accentColor }]}>
+                            {type === 'MEETING' ? 'Mid Energy' : type === 'BREAK' ? 'Recharge' : 'High Energy'}
+                        </Text>
                     </View>
-                    <Text style={[styles.progressText, { color: subTextColor }]}>{progress}%</Text>
+
+                    {/* Progress Bar (if active) */}
+                    {progress > 0 && !isCompleted && (
+                        <View style={styles.miniProgress}>
+                            <Text style={styles.progressText}>{progress}%</Text>
+                            <View style={[styles.progressBarBG]}>
+                                <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: accentColor }]} />
+                            </View>
+                        </View>
+                    )}
                 </View>
             </View>
         </TouchableOpacity>
@@ -87,87 +90,90 @@ export const ScheduleCard = ({
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        marginBottom: spacing.m,
+        marginBottom: spacing.l, // Increased spacing
         paddingHorizontal: spacing.l,
     },
-    timeColumn: {
-        width: 60,
-        alignItems: 'center', 
-        marginRight: spacing.s
+    timeRow: {
+        marginBottom: 6,
+        paddingLeft: 4, // Align visually with card curve
     },
-    startTime: {
-        ...typography.body,
-        fontWeight: '600',
-        color: colors.text,
-        marginBottom: 4
-    },
-    endTime: {
+    timeText: {
         ...typography.caption,
-        color: colors.textLight,
-        marginTop: 4,
-    },
-    timelineLine: {
-        flex: 1,
-        width: 1,
-        backgroundColor: colors.border,
-        marginVertical: 4
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.textSecondary,
+        letterSpacing: 0.5,
     },
     card: {
-        flex: 1,
-        borderRadius: 24,
-        padding: spacing.l,
-        ...shadows.soft,
-        minHeight: 120,
-        justifyContent: 'space-between'
+        borderRadius: 24, // 24px radius
+        padding: spacing.m,
+        ...shadows.soft, // Stronger soft shadow
+        shadowOpacity: 0.08, // Custom tweak for "slightly stronger"
+        shadowRadius: 12,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.02)',
     },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: spacing.s
-    },
-    badge: {
-        backgroundColor: '#FFF',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    checkbox: {
-        padding: 4
+        marginBottom: spacing.s,
+        gap: spacing.m
     },
     title: {
-        ...typography.subheader,
-        fontSize: 18,
-        marginBottom: spacing.m,
+        ...typography.bodyBold,
+        fontSize: 17, // Larger hierarchy
+        color: colors.text,
+        flex: 1,
+        lineHeight: 24,
     },
-    completedText: {
-        textDecorationLine: 'line-through',
-        opacity: 0.8,
+    completedTitle: {
+        color: colors.textSecondary,
+        textDecorationLine: 'none', // Removed strikethrough for cleaner look, handled by tint
+        opacity: 0.8
     },
-    progressContainer: {
+    checkbox: {
+        marginTop: 2
+    },
+    footerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12
+        justifyContent: 'space-between',
     },
-    progressBarTrack: {
-        flex: 1,
-        height: 6,
-        backgroundColor: 'rgba(0,0,0,0.2)', // Semi-transparent black for depth
-        borderRadius: 3,
-        overflow: 'hidden'
+    energyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    energyText: {
+        // fontFamily: typography.fontFamily, // Removed non-existent property
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.3,
+    },
+    miniProgress: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    progressText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: colors.textLight,
+    },
+    progressBarBG: {
+        width: 40,
+        height: 4,
+        backgroundColor: colors.border,
+        borderRadius: 2,
+        overflow: 'hidden',
     },
     progressBarFill: {
         height: '100%',
-        borderRadius: 3
-    },
-    progressText: {
-        fontSize: 12,
-        fontWeight: '600'
+        borderRadius: 2,
     }
 });
 

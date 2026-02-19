@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { BackButton } from '../components/ui/BackButton';
 
 export const PremiumScreen = ({ navigation }: any) => {
     const { getToken } = useAuth();
@@ -58,48 +61,59 @@ export const PremiumScreen = ({ navigation }: any) => {
         }
     };
 
+    const insets = useSafeAreaInsets();
+
     return (
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Upgrade to Pro</Text>
-                <Text style={styles.subtitle}>Unlock the full potential of your pace.</Text>
-            </View>
+        <ScreenLayout edges={['top']}>
+            <View style={{flex: 1}}>
+                <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+                    <View style={styles.header}>
+                        <View style={{ position: 'absolute', left: 20, top: spacing.m, zIndex: 10 }}>
+                             <BackButton />
+                        </View>
+                        <Text style={styles.title}>Upgrade to Pro</Text>
+                        <Text style={styles.subtitle}>Unlock the full potential of your pace.</Text>
+                    </View>
+    
+                    <View style={styles.card}>
+                        <View style={styles.priceContainer}>
+                            <Text style={styles.currency}>₹</Text>
+                            <Text style={styles.price}>99</Text>
+                            <Text style={styles.period}>/month</Text>
+                        </View>
+                        <View style={styles.divider} />
+                        
+                        <View style={styles.features}>
+                            <FeatureRow text="Unlimited History (vs 7 days)" />
+                            <FeatureRow text="Advanced Health Charts" />
+                            <FeatureRow text="Calendar Insights" />
+                            <FeatureRow text="Support Independent Development ❤️" />
+                        </View>
+                    </View>
+                </ScrollView>
 
-            <View style={styles.card}>
-                <View style={styles.priceContainer}>
-                    <Text style={styles.currency}>₹</Text>
-                    <Text style={styles.price}>99</Text>
-                    <Text style={styles.period}>/month</Text>
+                <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
+                    <TouchableOpacity 
+                        style={styles.subscribeBtn} 
+                        onPress={handleSubscribe} 
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text style={styles.subscribeText}>Subscribe Now</Text>
+                        )}
+                    </TouchableOpacity>
+                    <Text style={styles.disclaimer}>Cancel anytime. Secure payment via Razorpay.</Text>
                 </View>
-                <View style={styles.divider} />
-                
-                <View style={styles.features}>
-                    <FeatureRow text="Unlimited History (vs 7 days)" />
-                    <FeatureRow text="Advanced Health Charts" />
-                    <FeatureRow text="Calendar Insights" />
-                    <FeatureRow text="Support Independent Development ❤️" />
-                </View>
-
-                <TouchableOpacity 
-                    style={styles.subscribeBtn} 
-                    onPress={handleSubscribe} 
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={styles.subscribeText}>Subscribe Now</Text>
-                    )}
-                </TouchableOpacity>
-                <Text style={styles.disclaimer}>Cancel anytime. Secure payment via Razorpay.</Text>
             </View>
-        </ScrollView>
+        </ScreenLayout>
     );
 };
 
 const FeatureRow = ({ text }: { text: string }) => (
     <View style={styles.featureRow}>
-        <Ionicons name="checkmark-circle" size={20} color={colors.secondary} />
+        <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
         <Text style={styles.featureText}>{text}</Text>
     </View>
 );
@@ -107,7 +121,7 @@ const FeatureRow = ({ text }: { text: string }) => (
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        // Background handled by ScreenLayout
     },
     header: {
         padding: spacing.xl,
@@ -130,7 +144,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: 24,
         padding: spacing.xl,
-        ...shadows.strong,
+        ...shadows.level2,
         alignItems: 'center',
     },
     priceContainer: {
@@ -184,12 +198,16 @@ const styles = StyleSheet.create({
     },
     subscribeText: {
         ...typography.subheader,
-        color: 'white',
+        color: colors.buttonPrimaryText,
         fontSize: 18,
     },
     disclaimer: {
         ...typography.caption,
         color: colors.textLight,
         textAlign: 'center',
+    },
+    footer: {
+        padding: spacing.l,
+        backgroundColor: colors.background,
     }
 });

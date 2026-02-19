@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Platform } from 'react-native';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomDatePicker } from './ui/CustomDatePicker';
 import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
 import { AnimatedSlider } from './ui/AnimatedSlider';
 import { toLocalISOString } from '../utils/dateUtils';
@@ -25,8 +26,15 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
     const [editDueDate, setEditDueDate] = useState<Date>(new Date());
     
     // Picker State
-    const [showPicker, setShowPicker] = useState(false);
-    const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+
+    // Tomorrow's date string for minDate restriction
+    const tomorrowStr = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    })();
 
     // Reset state when modal opens/closes or todo changes
     useEffect(() => {
@@ -60,13 +68,13 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
     };
 
     const showMode = (currentMode: 'date' | 'time') => {
-        setShowPicker(true);
-        setPickerMode(currentMode);
+        if (currentMode === 'date') setShowDatePicker(true);
+        else setShowTimePicker(true);
     };
 
-    const onDateChange = (event: any, selectedDate?: Date) => {
+    const onTimeChange = (event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || editDueDate;
-        setShowPicker(Platform.OS === 'ios');
+        setShowTimePicker(Platform.OS === 'ios');
         setEditDueDate(currentDate);
     };
 
@@ -208,14 +216,31 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
                                 </TouchableOpacity>
                             </View>
 
-                            {showPicker && (
+                            {showTimePicker && (
                                 <MyDateTimePicker
                                     value={editDueDate}
-                                    mode={pickerMode}
+                                    mode="time"
                                     is24Hour={true}
-                                    onChange={onDateChange}
+                                    onChange={onTimeChange}
                                 />
                             )}
+
+                            {/* Custom calendar date picker — future dates only */}
+                            <CustomDatePicker
+                                visible={showDatePicker}
+                                initialDate={editDueDate}
+                                minDate={tomorrowStr}
+                                title="Reschedule Task"
+                                onClose={() => setShowDatePicker(false)}
+                                onConfirm={(date) => {
+                                    setEditDueDate(prev => {
+                                        const updated = new Date(date);
+                                        updated.setHours(prev.getHours(), prev.getMinutes());
+                                        return updated;
+                                    });
+                                    setShowDatePicker(false);
+                                }}
+                            />
 
                             <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
                                 <Text style={styles.saveBtnText}>Save Changes</Text>
@@ -336,7 +361,7 @@ const styles = StyleSheet.create({
     },
     saveBtnText: {
         ...typography.subheader,
-        color: 'white',
+        color: colors.buttonPrimaryText,
         fontSize: 16
     },
     tomorrowBtn: {

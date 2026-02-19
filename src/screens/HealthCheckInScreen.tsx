@@ -1,30 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
-import Slider from '@react-native-community/slider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-const MoodSelector = ({ value, onChange }: any) => {
-    const moods = ['Happy', 'Calm', 'Tired', 'Anxious', 'Pain'];
-    return (
-        <View style={styles.selectorContainer}>
-            <Text style={styles.selectorLabel}>Mood</Text>
-            <View style={styles.moodRow}>
-                {moods.map((m) => (
-                    <TouchableOpacity 
-                        key={m} 
-                        style={[styles.moodBtn, value === m && styles.moodBtnActive]}
-                        onPress={() => onChange(m)}
-                    >
-                        <Text style={[styles.moodText, value === m && { color: 'white' }]}>{m}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-        </View>
-    )
-}
+import { CustomSlider } from '../components/ui/CustomSlider';
+import { MoodSelector } from '../components/MoodSelector';
+import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { BackButton } from '../components/ui/BackButton';
 
 export const HealthCheckInScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
@@ -32,14 +16,47 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
 
   const [pain, setPain] = useState(0);
   const [fatigue, setFatigue] = useState(0);
-  const [mood, setMood] = useState('Calm');
+  const [mood, setMood] = useState('GOOD');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isUpdate, setIsUpdate] = useState(false);
+  const [fetching, setFetching] = useState(true);
+
+  useEffect(() => {
+      fetchTodayData();
+  }, []);
+
+  const fetchTodayData = async () => {
+      try {
+          const today = new Date().toISOString().split('T')[0];
+          const [log, metrics] = await Promise.all([
+              api.getDailyLog(today).catch(() => null),
+              api.getHealthMetrics(today).catch(() => null) // Returns null if 404
+          ]);
+
+          if (log && log.mood) setMood(log.mood);
+          if (metrics) {
+              setPain(metrics.pain_level || 0);
+              setFatigue(metrics.fatigue_level || 0);
+              setNotes(metrics.notes || '');
+              setIsUpdate(true);
+          }
+      } catch (e) {
+          console.log("No existing data for today or error fetching", e);
+      } finally {
+          setFetching(false);
+      }
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
         const today = new Date().toISOString().split('T')[0];
+        
+        // Log Mood
+        await api.logDay(today, undefined, mood);
+
+        // Log Metrics
         await api.logHealthMetrics({
             date: today,
             painLevel: Math.round(pain),
@@ -47,6 +64,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
             mood,
             notes
         });
+        
         navigation.goBack();
     } catch (error) {
         console.error(error);
@@ -56,74 +74,86 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
     }
   };
 
-  const renderSlider = (label: string, value: number, onValueChange: (val: number) => void, color: string) => (
-      <View style={styles.selectorContainer}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.s}}>
-              <Text style={styles.selectorLabel}>{label}</Text>
-              <Text style={[styles.selectorValue, { color }]}>{Math.round(value)}/10</Text>
+  if (fetching) {
+      return (
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="large" color={colors.primary} />
           </View>
-          <Slider
-              style={{width: '100%', height: 40}}
-              minimumValue={0}
-              maximumValue={10}
-              step={1}
-              value={value}
-              onValueChange={onValueChange}
-              minimumTrackTintColor={color}
-              maximumTrackTintColor={colors.border}
-              thumbTintColor={color}
-          />
-      </View>
-  );
+      );
+  }
+
+  const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Header with Back Button */}
-      <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-             <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Check-in</Text>
-          <View style={{width: 24}} /> 
-      </View>
+    <ScreenLayout edges={['top']}>
+        <View style={{flex: 1}}>
+            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+                {/* Header with Back Button */}
+                <View style={styles.header}>
+                    <BackButton style={styles.backBtn} />
+                    <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
+                    <View style={{width: 24}} /> 
+                </View>
 
-      <Text style={styles.title}>How do you feel?</Text>
-      <Text style={styles.subtitle}>Be honest. No judgment here.</Text>
+                <Text style={styles.title}>How do you feel?</Text>
+                <Text style={styles.subtitle}>Be honest. No judgment here.</Text>
 
-      {renderSlider("Pain Level", pain, setPain, "#FFB7B2")}
-      {renderSlider("Fatigue Level", fatigue, setFatigue, "#FFDAC1")}
-      
-      <MoodSelector value={mood} onChange={setMood} />
+                <CustomSlider 
+                    label="Pain Level" 
+                    value={pain} 
+                    onValueChange={setPain} 
+                    color={colors.chart.pain}
+                    max={10}
+                    step={0.1} 
+                />
+                
+                <CustomSlider 
+                    label="Fatigue Level" 
+                    value={fatigue} 
+                    onValueChange={setFatigue} 
+                    color={colors.chart.fatigue}
+                    max={10}
+                    step={0.1}
+                />
+                
+                <Text style={styles.label}>Mood</Text>
+                <View style={{ marginBottom: spacing.l }}>
+                    <MoodSelector selectedMood={mood} onSelectMood={setMood} />
+                </View>
 
-      <Text style={styles.label}>Notes</Text>
-      <TextInput 
-        style={styles.input} 
-        multiline 
-        placeholder="Anything else?" 
-        value={notes} 
-        onChangeText={setNotes} 
-        placeholderTextColor={colors.textLight}
-      />
+                <Text style={styles.label}>Notes</Text>
+                <TextInput 
+                    style={styles.input} 
+                    multiline 
+                    placeholder="Anything else?" 
+                    value={notes} 
+                    onChangeText={setNotes} 
+                    placeholderTextColor={colors.textLight}
+                />
+            </ScrollView>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={loading}>
-          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Save Check-in</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={loading}>
+                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>{isUpdate ? 'Update' : 'Save Check-in'}</Text>}
+                </TouchableOpacity>
+            </View>
+        </View>
+    </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    // Background and padding handled by ScreenLayout but we keep padding info
     padding: spacing.l,
-    paddingTop: spacing.l, // Reduced
   },
   header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: spacing.l,
+      paddingTop: spacing.m,
   },
   backBtn: {
       padding: 8,
@@ -151,10 +181,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.text,
   },
-  selectorValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   moodRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -171,8 +197,8 @@ const styles = StyleSheet.create({
     ...shadows.soft,
   },
   moodBtnActive: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
     transform: [{scale: 1.05}]
   },
   moodText: {
@@ -203,11 +229,14 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.l,
     alignItems: 'center',
     ...shadows.soft,
-    marginBottom: spacing.xl,
   },
   saveBtnText: {
     ...typography.subheader,
-    color: 'white',
+    color: colors.buttonPrimaryText,
     fontSize: 18,
+  },
+  footer: {
+      padding: spacing.l,
+      backgroundColor: colors.background, 
   }
 });

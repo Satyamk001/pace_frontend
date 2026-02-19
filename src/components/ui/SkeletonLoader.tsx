@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, ViewStyle } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, ViewStyle } from 'react-native';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 
-// --- Reusable Shimmer Box ---
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// --- Reusable Shimmer Box (sweep shimmer animation) ---
 interface SkeletonBoxProps {
     width: number | string;
     height: number;
@@ -11,32 +13,43 @@ interface SkeletonBoxProps {
 }
 
 export const SkeletonBox = ({ width, height, borderRadius: br = 8, style }: SkeletonBoxProps) => {
-    const opacity = useRef(new Animated.Value(0.3)).current;
+    const shimmerX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
 
     useEffect(() => {
         const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-                Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-            ])
+            Animated.timing(shimmerX, {
+                toValue: SCREEN_WIDTH,
+                duration: 1200,
+                useNativeDriver: true,
+            })
         );
         animation.start();
         return () => animation.stop();
     }, []);
 
     return (
-        <Animated.View
+        <View
             style={[
                 {
                     width: width as any,
                     height,
                     borderRadius: br,
                     backgroundColor: colors.border,
-                    opacity,
+                    overflow: 'hidden',
                 },
                 style,
             ]}
-        />
+        >
+            <Animated.View
+                style={{
+                    width: '60%',
+                    height: '100%',
+                    backgroundColor: 'rgba(255,255,255,0.35)',
+                    transform: [{ translateX: shimmerX }],
+                    borderRadius: br,
+                }}
+            />
+        </View>
     );
 };
 
@@ -158,78 +171,179 @@ export const ScheduleListSkeleton = ({ count = 3 }: { count?: number }) => (
 // --- Stats Skeleton (for StatsScreen) ---
 export const StatsSkeleton = () => (
     <View style={statsStyles.container}>
-        {/* Header Title */}
-        <SkeletonBox width={120} height={32} borderRadius={8} style={{ marginBottom: spacing.l, marginLeft: spacing.l }} />
+        {/* Header Title Space - Removed to show real header */}
+        <View style={{ height: 60 }} />
 
         {/* Range Selector */}
         <View style={statsStyles.rangeRow}>
-            <SkeletonBox width={60} height={32} borderRadius={20} />
-            <SkeletonBox width={60} height={32} borderRadius={20} />
-            <SkeletonBox width={60} height={32} borderRadius={20} />
+            <SkeletonBox width={50} height={28} borderRadius={16} />
+            <SkeletonBox width={50} height={28} borderRadius={16} />
+            <SkeletonBox width={50} height={28} borderRadius={16} />
+            <SkeletonBox width={50} height={28} borderRadius={16} />
         </View>
 
-        {/* Summary Cards Grid */}
-        <View style={statsStyles.cardRow}>
-            <SkeletonBox width="48%" height={100} borderRadius={20} />
-            <SkeletonBox width="48%" height={100} borderRadius={20} />
-        </View>
-        <View style={statsStyles.cardRow}>
-            <SkeletonBox width="48%" height={100} borderRadius={20} />
-            <SkeletonBox width="48%" height={100} borderRadius={20} />
+        {/* Stats Grid (2x2) */}
+        <View style={statsStyles.gridContainer}>
+             <View style={statsStyles.gridRow}>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+             </View>
+             <View style={statsStyles.divider} />
+             <View style={statsStyles.gridRow}>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+             </View>
         </View>
 
-        {/* Wide Card */}
-        <SkeletonBox width="100%" height={80} borderRadius={20} style={{ marginBottom: spacing.m }} />
+        {/* Chart Card */}
+        <View style={statsStyles.chartCard}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.m}}>
+                <SkeletonBox width={100} height={20} borderRadius={6} />
+                <SkeletonBox width={80} height={20} borderRadius={6} />
+            </View>
+            <SkeletonBox width="100%" height={180} borderRadius={16} />
+        </View>
+    </View>
+);
 
-        {/* Chart */}
-        <SkeletonBox width="100%" height={220} borderRadius={24} />
+// --- Stats Content Skeleton (Grid + Chart only) ---
+export const StatsContentSkeleton = () => (
+    <View style={statsStyles.container}>
+        {/* Stats Grid (2x2) */}
+        <View style={statsStyles.gridContainer}>
+             <View style={statsStyles.gridRow}>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+             </View>
+             <View style={statsStyles.divider} />
+             <View style={statsStyles.gridRow}>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+                <View style={[statsStyles.gridItem, { alignItems: 'center' }]}>
+                    <SkeletonBox width={32} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={60} height={12} borderRadius={4} />
+                </View>
+             </View>
+        </View>
+
+        {/* Chart Card */}
+        <View style={statsStyles.chartCard}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.m}}>
+                <SkeletonBox width={100} height={20} borderRadius={6} />
+                <SkeletonBox width={80} height={20} borderRadius={6} />
+            </View>
+            <SkeletonBox width="100%" height={180} borderRadius={16} />
+        </View>
     </View>
 );
 
 const statsStyles = StyleSheet.create({
     container: {
-        paddingTop: spacing.l,
+        flex: 1,
         paddingHorizontal: spacing.l,
+        paddingTop: spacing.m
     },
     rangeRow: {
         flexDirection: 'row',
-        gap: spacing.m,
-        marginBottom: spacing.l,
-    },
-    cardRow: {
-        flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: spacing.m,
+        marginBottom: spacing.l,
+        paddingHorizontal: spacing.s
     },
+    gridContainer: {
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.l,
+        padding: spacing.m,
+        marginBottom: spacing.l,
+        ...shadows.soft,
+    },
+    gridRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+    },
+    gridItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.border,
+        opacity: 0.5,
+        marginVertical: spacing.m,
+    },
+    chartCard: {
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.l,
+        padding: spacing.m,
+        ...shadows.soft,
+    }
 });
 
 // --- Profile Skeleton (for ProfileScreen) ---
 export const ProfileSkeleton = () => (
     <View style={profileStyles.container}>
-        {/* Header Section */}
-        <View style={profileStyles.header}>
-            <SkeletonBox width={100} height={100} borderRadius={50} style={{ marginBottom: spacing.m }} />
-            <SkeletonBox width={160} height={24} borderRadius={8} style={{ marginBottom: 8 }} />
-            <SkeletonBox width={120} height={16} borderRadius={6} />
-            
-            {/* Stats Row */}
-            <View style={profileStyles.statsRow}>
-                <SkeletonBox width={60} height={40} borderRadius={8} />
-                <View style={{ width: 1, height: 40, backgroundColor: colors.border }} />
-                <SkeletonBox width={60} height={40} borderRadius={8} />
-                <View style={{ width: 1, height: 40, backgroundColor: colors.border }} />
-                <SkeletonBox width={60} height={40} borderRadius={8} />
-            </View>
+        {/* Spacer for Header */}
+        <View style={{ height: 60 }} />
+
+        {/* Profile Info */}
+        <View style={profileStyles.profileInfo}>
+            <SkeletonBox width={80} height={80} borderRadius={40} style={{ marginBottom: spacing.m }} />
+            <SkeletonBox width={140} height={24} borderRadius={8} style={{ marginBottom: 8 }} />
+            <SkeletonBox width={180} height={16} borderRadius={6} />
         </View>
 
+        {/* Stats Row */}
+        <View style={profileStyles.statsRow}>
+            {[1, 2, 3].map((_, i) => (
+                <View key={i} style={profileStyles.statItem}>
+                    <SkeletonBox width={40} height={24} borderRadius={6} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width={50} height={12} borderRadius={4} />
+                </View>
+            ))}
+        </View>
+
+        {/* Settings List */}
+        <View style={profileStyles.section}>
+            {[1, 2, 3, 4].map((_, i) => (
+                <View key={i} style={profileStyles.row}>
+                    <SkeletonBox width={24} height={24} borderRadius={8} />
+                    <SkeletonBox width={120} height={16} borderRadius={4} style={{ marginLeft: spacing.m }} />
+                </View>
+            ))}
+        </View>
+    </View>
+);
+
+// --- Profile Content Skeleton (Settings List) ---
+export const ProfileSettingsSkeleton = () => (
+    <View style={profileStyles.container}>
         {/* Premium Card */}
         <SkeletonBox width="100%" height={80} borderRadius={24} style={{ marginBottom: spacing.l }} />
 
         {/* Settings List */}
-        <View style={profileStyles.settingsList}>
+        <View style={profileStyles.section}>
             {[1, 2, 3, 4].map((_, i) => (
-                <View key={i} style={profileStyles.settingItem}>
-                    <SkeletonBox width={32} height={32} borderRadius={10} />
+                <View key={i} style={profileStyles.row}>
+                    <SkeletonBox width={24} height={24} borderRadius={8} />
                     <SkeletonBox width={120} height={16} borderRadius={4} style={{ marginLeft: spacing.m }} />
                 </View>
             ))}
@@ -240,32 +354,33 @@ export const ProfileSkeleton = () => (
 const profileStyles = StyleSheet.create({
     container: {
         paddingHorizontal: spacing.l,
-        paddingTop: spacing.xl,
+        paddingTop: spacing.l
     },
-    header: {
+    profileInfo: {
         alignItems: 'center',
-        marginBottom: spacing.l,
-        paddingBottom: spacing.l,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        marginBottom: spacing.xl,
+        marginTop: spacing.l
     },
     statsRow: {
         flexDirection: 'row',
-        marginTop: spacing.l,
-        gap: spacing.l,
+        justifyContent: 'space-around',
+        marginBottom: spacing.xl,
+        paddingHorizontal: spacing.m
+    },
+    statItem: {
         alignItems: 'center',
     },
-    settingsList: {
+    section: {
+        backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.border,
+        padding: spacing.m,
+        ...shadows.soft,
     },
-    settingItem: {
+    row: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.m,
+        paddingVertical: spacing.m,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
+        borderBottomColor: colors.border + '20', // Very light border
+    }
 });

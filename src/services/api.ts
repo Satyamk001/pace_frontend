@@ -3,6 +3,11 @@ import { useAuth } from '@clerk/clerk-expo';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
 
 
+
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+const inFlightRequests = new Map<string, Promise<any>>();
+const CACHE_TTL = 60000; // 60 seconds
+
 export const createApiService = (getToken: () => Promise<string | null>) => {
   const getHeaders = async () => {
     const token = await getToken();
@@ -12,16 +17,60 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     };
   };
 
+  const getCached = (url: string) => {
+    const cached = apiCache.get(url);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+    return null;
+  };
+
+  const setCache = (url: string, data: any) => {
+    apiCache.set(url, { data, timestamp: Date.now() });
+  };
+
+  const invalidateCache = (pattern: string) => {
+    for (const key of apiCache.keys()) {
+      if (key.includes(pattern)) {
+        apiCache.delete(key);
+      }
+    }
+  };
+
+  const fetchWithCache = async (url: string) => {
+      // 1. Check Memory Cache
+      const cached = getCached(url);
+      if (cached) return cached;
+
+      // 2. Check In-Flight Requests (Deduplication)
+      if (inFlightRequests.has(url)) {
+          return inFlightRequests.get(url);
+      }
+
+      // 3. Make Request
+      const requestPromise = (async () => {
+          try {
+              const headers = await getHeaders();
+              const res = await fetch(url, { headers });
+              if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+              const data = await res.json();
+              setCache(url, data);
+              return data;
+          } finally {
+              inFlightRequests.delete(url);
+          }
+      })();
+
+      inFlightRequests.set(url, requestPromise);
+      return requestPromise;
+  };
+
   return {
     getTodos: async (date?: string, status?: 'active' | 'completed') => {
-      const headers = await getHeaders();
       let url = `${BACKEND_URL}/todos?`;
       if (date) url += `date=${date}&`;
       if (status) url += `status=${status}`;
-      
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error('Failed to fetch todos');
-      return res.json();
+      return fetchWithCache(url);
     },
 
     createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string) => {
@@ -32,6 +81,8 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
         body: JSON.stringify({ title, energyLevel, dueDate }),
       });
       if (!res.ok) throw new Error('Failed to create todo');
+      invalidateCache('/todos');
+      invalidateCache('/reports'); 
       return res.json();
     },
 
@@ -43,6 +94,8 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
           body: JSON.stringify({ isCompleted }),
         });
         if (!res.ok) throw new Error('Failed to update todo');
+        invalidateCache('/todos');
+        invalidateCache('/reports');
         return res.json();
     },
 
@@ -54,6 +107,7 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
             body: JSON.stringify(updates),
         });
         if (!res.ok) throw new Error('Failed to update details');
+        invalidateCache('/todos');
         return res.json();
     },
 
@@ -64,14 +118,14 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
             headers,
         });
         if (!res.ok) throw new Error('Failed to delete todo');
+        invalidateCache('/todos');
+        invalidateCache('/reports');
         return res.json();
     },
 
     getDailyLog: async (date: string) => {
-      const headers = await getHeaders();
-      const res = await fetch(`${BACKEND_URL}/daily-logs?date=${date}`, { headers });
-      if (!res.ok) throw new Error('Failed to fetch daily log');
-      return res.json();
+      const url = `${BACKEND_URL}/daily-logs?date=${date}`;
+      return fetchWithCache(url);
     },
 
     logDay: async (date: string, dayType?: 'NORMAL' | 'FLARE_UP' | 'LOW_ENERGY', mood?: string) => {
@@ -82,28 +136,24 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
         body: JSON.stringify({ date, dayType, mood }),
       });
       if (!res.ok) throw new Error('Failed to log day');
+      invalidateCache('/daily-logs');
+      invalidateCache('/reports'); 
       return res.json();
     },
 
     getStats: async (range: string = '7') => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/reports/stats?range=${range}`, { headers });
-        if (!res.ok) throw new Error('Failed to fetch stats');
-        return res.json();
+        const url = `${BACKEND_URL}/reports/stats?range=${range}`;
+        return fetchWithCache(url);
     },
 
     getCalendarData: async () => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/reports/calendar`, { headers });
-        if (!res.ok) throw new Error('Failed to fetch calendar');
-        return res.json();
+        const url = `${BACKEND_URL}/reports/calendar`;
+        return fetchWithCache(url);
     },
 
     getHealthMetrics: async (date: string) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics?date=${date}`, { headers });
-        if (!res.ok) throw new Error('Failed to fetch health metrics');
-        return res.json();
+        const url = `${BACKEND_URL}/health-metrics?date=${date}`;
+        return fetchWithCache(url);
     },
 
     logHealthMetrics: async (data: { date: string, painLevel: number, fatigueLevel: number, mood: string, notes?: string }) => {
@@ -114,6 +164,8 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
             body: JSON.stringify(data),
         });
         if (!res.ok) throw new Error('Failed to log metrics');
+        invalidateCache('/health-metrics');
+        invalidateCache('/reports'); 
         return res.json();
     },
 
