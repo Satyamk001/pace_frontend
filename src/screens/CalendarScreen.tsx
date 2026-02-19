@@ -335,8 +335,32 @@ export const CalendarScreen = ({ navigation }: any) => {
   const completedTasks = dayTasks.filter(t => t.is_completed).length;
   const progressPercent = dayTasks.length > 0 ? (completedTasks / dayTasks.length) : 0;
   
-  const moodEmoji = dayLog?.mood ? dayLog.mood.split(' ')[0] : '—'; // Assume "😊 Happy" format
-  const moodText = dayLog?.mood ? dayLog.mood.split(' ').slice(1).join(' ') : 'No Data';
+  // Mood Mapping
+  const getMoodDetails = (moodKey: string) => {
+      // Map mood keys to Icon name + Color + Label
+      const map: Record<string, { icon: string; color: string; label: string }> = {
+          'GREAT': { icon: 'happy-outline', color: colors.mood.great, label: 'Great' },
+          'GOOD': { icon: 'leaf-outline', color: colors.mood.good, label: 'Good' },
+          'OKAY': { icon: 'partly-sunny-outline', color: colors.mood.okay, label: 'Okay' },
+          'LOW': { icon: 'battery-dead-outline', color: colors.mood.low, label: 'Low' },
+          'PAIN': { icon: 'medkit-outline', color: colors.mood.pain, label: 'Pain' }
+      };
+
+      // Handle legacy format "😊 Happy" by trying to extract label
+      if (moodKey.includes(' ')) {
+           const extractedLabel = moodKey.split(' ').slice(1).join(' ');
+           // Try to find a match by label (case-insensitive)
+           const found = Object.values(map).find((m) => m.label.toUpperCase() === extractedLabel.toUpperCase());
+           if (found) return found;
+           // Fallback if label doesn't match known moods
+           return { icon: 'help-circle-outline', color: colors.textLight, label: extractedLabel };
+      }
+      return map[moodKey] || { icon: 'help-circle-outline', color: colors.textLight, label: 'No Data' };
+  };
+
+  const { icon: moodIcon, color: moodColor, label: moodLabel } = dayLog?.mood 
+      ? getMoodDetails(dayLog.mood) 
+      : { icon: 'remove-circle-outline', color: colors.textLight, label: 'No Data' };
 
   // Prepare marked dates for Month View
   const markedDates: any = useMemo(() => {
@@ -513,7 +537,7 @@ export const CalendarScreen = ({ navigation }: any) => {
                                 chartConfig={{
                                     backgroundGradientFrom: colors.surface,
                                     backgroundGradientTo: colors.surface,
-                                    color: (opacity = 1) => `rgba(124, 132, 255, ${opacity})`,
+                                    color: (opacity = 1) => `rgba(5, 150, 105, ${opacity})`,
                                     labelColor: (opacity = 1) => colors.text,
                                 }}
                                 hideLegend={true}
@@ -529,8 +553,8 @@ export const CalendarScreen = ({ navigation }: any) => {
                             <View style={styles.statRow}>
                                 <Text style={styles.statLabel}>Mood</Text>
                                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                    <Text style={{fontSize: 20, marginRight: 4}}>{moodEmoji}</Text>
-                                    <Text style={styles.statValue}>{moodText}</Text>
+                                    <Ionicons name={moodIcon as any} size={20} color={moodColor} style={{marginRight: 4}} />
+                                    <Text style={styles.statValue}>{moodLabel}</Text>
                                 </View>
                             </View>
                             <View style={styles.statRow}>
