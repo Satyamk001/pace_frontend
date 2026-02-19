@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MyDateTimePicker } from './ui/MyDateTimePicker';
 import { CustomDialog } from './ui/CustomDialog';
 import { CustomDatePicker } from './ui/CustomDatePicker';
-import { toLocalISOString } from '../utils/dateUtils';
+
 
 interface CompletionModalProps {
     visible: boolean;
@@ -61,7 +61,7 @@ export const CompletionModal = ({
 
     const handleConfirmReschedule = () => {
         if (!todo || !onReschedule) return;
-        onReschedule(todo.id, toLocalISOString(rescheduleDate));
+        onReschedule(todo.id, rescheduleDate.toISOString());
         animateOut(onClose);
     };
 
@@ -138,7 +138,7 @@ export const CompletionModal = ({
 
     const handleDateConfirm = () => {
         if (!todo || !onReschedule) return;
-        onReschedule(todo.id, toLocalISOString(rescheduleDate));
+        onReschedule(todo.id, rescheduleDate.toISOString());
         setShowDatePicker(false);
         animateOut(onClose);
     };

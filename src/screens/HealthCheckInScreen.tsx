@@ -9,6 +9,7 @@ import { CustomSlider } from '../components/ui/CustomSlider';
 import { MoodSelector } from '../components/MoodSelector';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 export const HealthCheckInScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
@@ -28,7 +29,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
 
   const fetchTodayData = async () => {
       try {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getLocalDateKey(new Date());
           const [log, metrics] = await Promise.all([
               api.getDailyLog(today).catch(() => null),
               api.getHealthMetrics(today).catch(() => null) // Returns null if 404
@@ -51,7 +52,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateKey(new Date());
         
         // Log Mood
         await api.logDay(today, undefined, mood);
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: spacing.l,
-      paddingTop: spacing.m,
+      // paddingTop: spacing.m,
   },
   backBtn: {
       padding: 8,

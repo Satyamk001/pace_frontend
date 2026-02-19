@@ -340,13 +340,15 @@ export const CalendarScreen = ({ navigation }: any) => {
 
   // Prepare marked dates for Month View
   const markedDates: any = useMemo(() => {
-      const marks: any = {};
-      Object.keys(calendarStats).forEach(dateStr => {
-          const stat = calendarStats[dateStr];
-          const isPainHigh = stat.pain_level >= 7;
-          const isAllDone = stat.completion_percent === 100;
+    const marks: any = {};
+    Object.keys(calendarStats).forEach(dateStr => {
+        const stat = calendarStats[dateStr];
+        
+        const painLevel = Number(stat.pain_level); 
+        const isPainHigh = !isNaN(painLevel) && painLevel > 5;
+        const isAllDone = stat.completion_percent === 100;
 
-          if (!isPainHigh && !isAllDone) return; // Skip days with nothing to mark
+        if (!isPainHigh && !isAllDone) return; // Skip days with nothing to mark
 
           marks[dateStr] = {
               customStyles: {

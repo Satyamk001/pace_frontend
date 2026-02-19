@@ -1,11 +1,11 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
-    useAnimatedProps, 
-    withSpring, 
-    runOnJS 
+    runOnJS,
+    useDerivedValue,
+    withSpring
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -33,61 +33,64 @@ export const CustomSlider = ({
     label,
     color = colors.primary,
 }: CustomSliderProps) => {
-    const [containerWidth, setContainerWidth] = useState(0);
+    const [width, setWidth] = useState(0);
+    const isDragging = useSharedValue(false);
     const translateX = useSharedValue(0);
     const scale = useSharedValue(1);
-    const isDragging = useSharedValue(false);
+    const context = useSharedValue(0);
 
-    // Calculate position percent based on value
+    // Sync only when NOT dragging to prevent fighting
     useEffect(() => {
-        if (containerWidth > 0 && !isDragging.value) {
-            const usableWidth = containerWidth - THUMB_SIZE;
-            const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
-            translateX.value = withSpring(pct * usableWidth, { damping: 20, stiffness: 150 });
+        if (!isDragging.value && width > 0) {
+            const range = max - min;
+            const percentage = (value - min) / range;
+            const clamped = Math.max(0, Math.min(1, percentage));
+            translateX.value = withSpring(clamped * (width - THUMB_SIZE), { damping: 20 });
         }
-    }, [value, containerWidth, min, max]);
+    }, [value, width, min, max]);
 
-    const computeValue = (posX: number) => {
-        'worklet';
-        const usableWidth = containerWidth - THUMB_SIZE;
-        if (usableWidth <= 0) return min;
-        
-        const pct = Math.max(0, Math.min(1, posX / usableWidth));
-        const raw = min + pct * (max - min);
-        const stepped = Math.round(raw / step) * step;
-        return Math.max(min, Math.min(max, stepped));
-    };
-
-    const pan = useMemo(() => Gesture.Pan()
+    const gesture = Gesture.Pan()
         .onStart(() => {
+            context.value = translateX.value;
             isDragging.value = true;
-            scale.value = withSpring(1.2);
+            scale.value = withSpring(1.15);
             runOnJS(Haptics.selectionAsync)();
         })
-        .onUpdate((event) => {
-            const usableWidth = containerWidth - THUMB_SIZE;
-            let newPos = event.x - THUMB_SIZE / 2; // Center on finger
+        .onUpdate((e) => {
+            const maxTranslate = width - THUMB_SIZE;
+            let rawX = context.value + e.translationX;
             // Clamp
-            newPos = Math.max(0, Math.min(newPos, usableWidth));
+            if (rawX < 0) rawX = 0;
+            if (rawX > maxTranslate) rawX = maxTranslate;
             
-            translateX.value = newPos;
-            
-            const newValue = computeValue(newPos);
-            runOnJS(onValueChange)(newValue);
+            translateX.value = rawX;
+
+            // Calculate value
+            const percentage = rawX / maxTranslate;
+            const rawValue = min + percentage * (max - min);
+            const steppedValue = Math.round(rawValue / step) * step;
+            const finalValue = Math.max(min, Math.min(max, steppedValue));
+
+            // Throttle Haptics/Updates? 
+            // For now, simple runOnJS. If flickering persists, we debounce this.
+            runOnJS(onValueChange)(finalValue);
         })
         .onEnd(() => {
             isDragging.value = false;
             scale.value = withSpring(1);
-            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+            
+            // Snap to exact step visually
+            const maxTranslate = width - THUMB_SIZE;
+            const percentage = translateX.value / maxTranslate;
+            const rawValue = min + percentage * (max - min);
+            const steppedValue = Math.round(rawValue / step) * step;
+            const finalPct = (steppedValue - min) / (max - min);
+            
+            translateX.value = withSpring(Math.max(0, Math.min(1, finalPct)) * maxTranslate);
+        });
 
-            // Snap to exact step position
-            const finalValue = computeValue(translateX.value);
-            const usableWidth = containerWidth - THUMB_SIZE;
-            const pct = (finalValue - min) / (max - min);
-            translateX.value = withSpring(pct * usableWidth);
-        }), [containerWidth, min, max, step, onValueChange]);
-
-    const animatedThumbStyle = useAnimatedStyle(() => ({
+    const thumbStyle = useAnimatedStyle(() => ({
         transform: [
             { translateX: translateX.value },
             { scale: scale.value }
@@ -95,31 +98,34 @@ export const CustomSlider = ({
         backgroundColor: color
     }));
 
-    const animatedFillStyle = useAnimatedStyle(() => ({
+    const trackFillStyle = useAnimatedStyle(() => ({
         width: translateX.value + THUMB_SIZE,
         backgroundColor: color
     }));
 
     return (
         <View style={styles.container}>
-            {label && (
+             {label && (
                 <View style={styles.header}>
                     <Text style={styles.label}>{label}</Text>
                     <Text style={[styles.value, { color }]}>{Math.round(value)}/{max}</Text>
                 </View>
             )}
-
+            
             <View 
                 style={styles.trackContainer}
-                onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+                onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
             >
-                <View style={styles.trackBackground} />
+                {/* Background Track */}
+                <View style={[styles.trackBackground]} />
                 
-                <Animated.View style={[styles.trackFill, animatedFillStyle]} />
+                {/* Active Fill */}
+                <Animated.View style={[styles.trackFill, trackFillStyle]} />
 
-                <GestureDetector gesture={pan}>
-                    <Animated.View style={[styles.thumb, animatedThumbStyle]}>
-                        <View style={styles.thumbInner} />
+                {/* Thumb */}
+                <GestureDetector gesture={gesture}>
+                    <Animated.View style={[styles.thumb, thumbStyle]}>
+                         <View style={styles.thumbInner} />
                     </Animated.View>
                 </GestureDetector>
             </View>
@@ -148,36 +154,37 @@ const styles = StyleSheet.create({
     },
     trackContainer: {
         height: TRACK_HEIGHT,
-        borderRadius: TRACK_HEIGHT / 2,
         justifyContent: 'center',
-        position: 'relative',
     },
     trackBackground: {
         position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: 0,
+        width: '100%',
+        height: '100%',
         borderRadius: TRACK_HEIGHT / 2,
         backgroundColor: colors.border,
     },
     trackFill: {
         position: 'absolute',
-        top: 0, left: 0, bottom: 0,
+        height: '100%',
         borderRadius: TRACK_HEIGHT / 2,
-        opacity: 0.35,
+        opacity: 0.3,
     },
     thumb: {
+        position: 'absolute',
+        left: 0,
         width: THUMB_SIZE,
         height: THUMB_SIZE,
         borderRadius: THUMB_SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
-        ...shadows.level2,
-        position: 'absolute',
-        left: 0,
+        ...shadows.soft,
+        shadowOpacity: 0.2, // Stronger shadow for thumb
+        elevation: 4,
     },
     thumbInner: {
-        width: 14,
-        height: 14,
-        borderRadius: 7,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-    },
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: 'white',
+    }
 });

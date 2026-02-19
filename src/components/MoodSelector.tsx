@@ -28,11 +28,12 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
                 const isSelected = selectedMood === mood.id;
                 const dynamicStyle = isSelected ? {
                     borderColor: mood.color,
-                    backgroundColor: mood.color + '20', // 12% opacity tint
+                    backgroundColor: colors.surface, // Keep surface clean
+                    borderWidth: 2, // Thicker border
                     shadowColor: mood.color,
-                    shadowOpacity: 0.3, 
-                    shadowRadius: 12,
-                    elevation: 8,
+                    shadowOpacity: 0.25, 
+                    shadowRadius: 8,
+                    elevation: 5,
                     transform: [{ scale: 1.05 }]
                 } : {};
 
@@ -41,7 +42,7 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
                         key={mood.id} 
                         style={[
                             styles.moodBtn, 
-                            dynamicStyle // Apply dynamic overrides
+                            dynamicStyle 
                         ]}
                         onPress={() => onSelectMood(mood.id)}
                         scaleTo={0.95}

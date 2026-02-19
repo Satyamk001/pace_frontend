@@ -3,10 +3,10 @@
 // ============================================================
 
 const palette = {
-  // Brand — refined indigo (distinctive, not generic system blue)
-  accent: '#5B5BD6',        // indigo — premium interactive
-  accentDark: '#4747B8',    // pressed / deep
-  accentSoft: '#EDEDFF',    // subtle selection tint
+  // Brand — teal emerald (distinctive, modern, health-forward)
+  accent: '#059669',        // teal emerald — premium interactive
+  accentDark: '#047857',    // pressed / deep
+  accentSoft: '#ECFDF5',    // subtle selection tint
 
   // Neutrals — warm off-white layers (replaces cold iOS grays)
   background: '#F7F7F5',    // warm near-white canvas
@@ -101,7 +101,7 @@ export const colors = {
   inputBackground: '#F2F2EF',
 
   // Special
-  lavender: '#EDEDFF', // Aligned to accentSoft for coherence
+  lavender: '#ECFDF5', // Aligned to accentSoft for coherence
 
   // Expose raw palette for specific component needs
   palette: palette,
@@ -150,46 +150,46 @@ export const borderRadius = {
 // ============================================================
 export const shadows = {
   soft: {
-    shadowColor: '#1A1400',
-    shadowOffset: { width: 0, height: 1 }, // Reduced offset
-    shadowOpacity: 0.04, // Drastically reduced from 0.06
-    shadowRadius: 6, // Tighter radius
-    elevation: 1, // Minimal elevation for Android
+    shadowColor: '#1A1400',       // Warm dark tint
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   medium: {
     shadowColor: '#1A1400',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3, // Reduced from 5
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 20,
+    elevation: 5,
   },
   glow: {
     shadowColor: palette.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    elevation: 4, // Reduced from 8
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.24,          // Green glow — visible but not neon
+    shadowRadius: 18,
+    elevation: 8,
   },
   level1: {
     shadowColor: '#1A1400',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   level2: {
     shadowColor: '#1A1400',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 5,
   },
   level3: {
     shadowColor: '#1A1400',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6, // Reduced from 10
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,          // Deep, dramatic elevation
+    shadowRadius: 32,
+    elevation: 10,
   },
 };
 

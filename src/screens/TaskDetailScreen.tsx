@@ -7,7 +7,8 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { CustomDatePicker } from '../components/ui/CustomDatePicker';
-import { toLocalISOString } from '../utils/dateUtils';
+import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
+
 
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
@@ -27,8 +28,17 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     
     // Restore missing state
     const [dueDate, setDueDate] = useState<Date>(todo.due_date ? new Date(todo.due_date) : new Date());
+    
+    // Check if time is set (simple heuristic: not 00:00:00)
+    const [hasTime, setHasTime] = useState(() => {
+        if (!todo.due_date) return false;
+        const d = new Date(todo.due_date);
+        return d.getHours() !== 0 || d.getMinutes() !== 0;
+    });
+
     const [isSaving, setIsSaving] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
     const tomorrowStr = (() => {
         const d = new Date();
         d.setDate(d.getDate() + 1);
@@ -58,7 +68,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 energyLevel,
                 progress,
                 isCompleted: completed,
-                dueDate: toLocalISOString(dueDate),
+                dueDate: dueDate.toISOString(),
             });
             navigation.goBack();
         } catch (e) {
@@ -187,31 +197,85 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                         </View>
                     </View>
 
-                    {/* Due Date */}
+                    {/* Schedule Section */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Due Date</Text>
-                        <TouchableOpacity 
-                            style={styles.dateBtn}
-                            onPress={() => setShowDatePicker(true)}
-                        >
-                            <Ionicons name="calendar-outline" size={20} color={colors.text} />
-                            <Text style={styles.dateText}>
-                                {dueDate.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                            </Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textLight} style={{ marginLeft: 'auto' }} />
-                        </TouchableOpacity>
+                        <Text style={styles.label}>Schedule</Text>
+                        <View style={styles.scheduleRow}>
+                            {/* Date Chip */}
+                            <TouchableOpacity 
+                                style={styles.scheduleChip}
+                                onPress={() => setShowDatePicker(true)}
+                            >
+                                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                                <Text style={styles.scheduleText}>
+                                    {dueDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Time Chip */}
+                            <TouchableOpacity 
+                                style={[styles.scheduleChip, hasTime && styles.activeChip]}
+                                onPress={() => setShowTimePicker(true)}
+                            >
+                                <Ionicons name="time-outline" size={18} color={hasTime ? colors.primary : colors.textLight} />
+                                <Text style={[styles.scheduleText, hasTime && { color: colors.primary }]}>
+                                    {hasTime 
+                                        ? dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                                        : 'All Day'}
+                                </Text>
+                            </TouchableOpacity>
+                            
+                            {/* Clear Time */}
+                            {hasTime && (
+                                <TouchableOpacity onPress={() => {
+                                    const d = new Date(dueDate);
+                                    d.setHours(0, 0, 0, 0);
+                                    setDueDate(d);
+                                    setHasTime(false);
+                                }}>
+                                    <Ionicons name="close-circle" size={20} color={colors.textLight} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
 
                         <CustomDatePicker
                             visible={showDatePicker}
-                            initialDate={initialDate}
+                            initialDate={dueDate}
                             minDate={tomorrowStr}
                             onClose={() => setShowDatePicker(false)}
                             onConfirm={(date) => {
-                                setDueDate(date);
+                                const newDate = new Date(date);
+                                if (hasTime) {
+                                    newDate.setHours(dueDate.getHours(), dueDate.getMinutes());
+                                } else {
+                                    newDate.setHours(0, 0, 0, 0);
+                                }
+                                setDueDate(newDate);
                                 setShowDatePicker(false);
                             }}
                             title="Set Due Date"
                         />
+
+                        {showTimePicker && (
+                            <MyDateTimePicker
+                                value={dueDate}
+                                mode="time"
+                                is24Hour={false}
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={(event, selectedDate) => {
+                                    setShowTimePicker(Platform.OS === 'ios');
+                                    if (selectedDate) {
+                                        const newDate = new Date(dueDate);
+                                        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+                                        setDueDate(newDate);
+                                        setHasTime(true);
+                                    }
+                                    if (Platform.OS !== 'ios') {
+                                        setShowTimePicker(false);
+                                    }
+                                }}
+                            />
+                        )}
                     </View>
 
                     {/* Energy Level */}
@@ -353,6 +417,33 @@ const styles = StyleSheet.create({
     energyRow: {
         flexDirection: 'row',
         gap: spacing.m,
+    },
+    // Schedule Styles
+    scheduleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.s,
+        flexWrap: 'wrap',
+    },
+    scheduleChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.m,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    activeChip: {
+        borderColor: colors.primary,
+        backgroundColor: colors.primary + '10', // 6% tint
+    },
+    scheduleText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: colors.text,
     },
     energyBtn: {
         flex: 1,

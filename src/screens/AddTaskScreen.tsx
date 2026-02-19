@@ -8,7 +8,7 @@ import { CustomDatePicker } from '../components/ui/CustomDatePicker';
 import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { Ionicons } from '@expo/vector-icons';
-import { toLocalISOString } from '../utils/dateUtils';
+
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 
@@ -53,7 +53,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
     if (!title.trim()) return;
     setLoading(true);
     try {
-      await api.createTodo(title, energy, toLocalISOString(dueDate));
+      await api.createTodo(title, energy, dueDate.toISOString());
       navigation.goBack();
     } catch (error) {
       console.error(error);

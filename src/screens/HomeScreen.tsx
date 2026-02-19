@@ -252,9 +252,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background, // Make transparent for gradient
   },
   taskListContent: {
-    paddingHorizontal: 0, // Cards have own padding
+    paddingHorizontal: spacing.l,
     paddingTop: spacing.s,
     flexGrow: 1,
+    paddingBottom: spacing.l, // Add bottom padding for better scroll experience
   },
   headerContainer: {
       flexDirection: 'row',
@@ -267,9 +268,11 @@ const styles = StyleSheet.create({
       width: 48,
       height: 48,
       borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.6)', // Glassy
+      backgroundColor: colors.surface, // Solid clean surface
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
       ...shadows.soft,
   },
   greeting: {

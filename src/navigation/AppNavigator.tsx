@@ -29,11 +29,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: borderRadius.xl,
         paddingTop: 12,
-        paddingBottom: 12, // Fixed padding, ignoring safe area for this floating look
+        paddingBottom: 12, 
         height: 68,
         alignItems: 'center',
         justifyContent: 'space-around',
-        ...shadows.soft,
+        // Clean shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 4,
     },
     tabItem: {
         flex: 1,
@@ -94,6 +99,7 @@ const MainTabs = () => {
       initialLayout={{ width: Dimensions.get('window').width }}
       screenOptions={{
         swipeEnabled: false,
+        animationEnabled: true, // Enable smooth sliding animation
         tabBarStyle: {
             backgroundColor: 'transparent', // We handle background in container
             position: 'absolute',
@@ -207,7 +213,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: MaterialTopTabBarProps
                                         { 
                                             opacity: opacityValue,
                                             transform: [{ translateY }],
-                                            backgroundColor: activeColor + '15' // Tinted background
+                                            backgroundColor: colors.surfaceSoft, // Use a solid warm tint instead of opacity
                                         }
                                     ]} 
                                 />

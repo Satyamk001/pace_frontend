@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomDatePicker } from './ui/CustomDatePicker';
 import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
 import { AnimatedSlider } from './ui/AnimatedSlider';
-import { toLocalISOString } from '../utils/dateUtils';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 interface TaskActionModalProps {
     visible: boolean;
@@ -61,7 +61,7 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
             title: editTitle, 
             energyLevel: editEnergy,
             progress: editProgress,
-            dueDate: toLocalISOString(editDueDate) 
+            dueDate: editDueDate.toISOString() 
         });
         setMode('MENU');
         onClose();
@@ -87,7 +87,7 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
     const handleMoveToTomorrow = async () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const dateStr = tomorrow.toISOString().split('T')[0];
+        const dateStr = getLocalDateKey(tomorrow);
         
         await onUpdate(todo.id, { dueDate: dateStr });
         Alert.alert("Moved", "Task moved to tomorrow.");

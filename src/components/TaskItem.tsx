@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Dimensions } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -9,7 +9,7 @@ import Animated, {
     ZoomOut,
     Layout
 } from 'react-native-reanimated';
-import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius, typography, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +43,7 @@ export const TaskItem = ({
 
     // Soft tint for completed state
     const containerStyle = isCompleted 
-        ? { backgroundColor: colors.palette.mint + '20', borderColor: 'transparent' } 
+        ? { backgroundColor: colors.palette.mint + '15' } 
         : { backgroundColor: colors.surface };
 
     const getEnergyColor = () => {
@@ -63,7 +63,7 @@ export const TaskItem = ({
     });
 
     const handlePressIn = () => {
-        scale.value = withSpring(0.97, { damping: 10 });
+        scale.value = withSpring(0.98, { damping: 10 });
     };
 
     const handlePressOut = () => {
@@ -86,7 +86,6 @@ export const TaskItem = ({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
         onToggle();
-        // Ideally we'd close it back, but let's leave it for the state update to handle re-render or explicit ref use
     };
 
     return (
@@ -98,16 +97,21 @@ export const TaskItem = ({
             <Swipeable
                 renderRightActions={!isCompleted ? renderRightActions : undefined}
                 onSwipeableOpen={!isCompleted ? onSwipeableOpen : undefined}
-                containerStyle={{ overflow: 'visible' }} // Ensure shadow isn't clipped
+                containerStyle={{ overflow: 'visible' }}
             >
                 <Animated.View style={animatedStyle}>
-                    <TouchableOpacity 
-                        activeOpacity={1} // Handled by Reanimated
+                    <Pressable
                         onPress={onPress || onToggle}
                         onLongPress={onLongPress}
                         onPressIn={handlePressIn}
                         onPressOut={handlePressOut}
-                        style={{ paddingHorizontal: spacing.l }}
+                        android_ripple={{ color: colors.l3, borderless: false }}
+                        style={({ pressed }) => [
+                            styles.card,
+                            containerStyle,
+                            // iOS press feedback
+                            Platform.OS === 'ios' && pressed && { opacity: 0.9 }
+                        ]}
                     >
                         {/* 1. Time Label (Conditional) */}
                         {(startTime || endTime) && (
@@ -119,60 +123,60 @@ export const TaskItem = ({
                             </View>
                         )}
 
-                        {/* 2. Card Content */}
-                        <View style={[styles.card, containerStyle]}>
+                        {/* Header: Title + Checkbox */}
+                        <View style={styles.headerRow}>
+                            <Text style={[styles.title, isCompleted && styles.completedTitle]} numberOfLines={2}>
+                                {title}
+                            </Text>
                             
-                            {/* Header: Title + Checkbox */}
-                            <View style={styles.headerRow}>
-                                <Text style={[styles.title, isCompleted && styles.completedTitle]} numberOfLines={2}>
-                                    {title}
-                                </Text>
-                                
-                                <TouchableOpacity 
-                                    onPress={() => {
-                                        if (Platform.OS !== 'web') {
-                                            if (!isCompleted) {
-                                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                            } else {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            }
+                            <Pressable
+                                onPress={(e) => {
+                                    e.stopPropagation(); // Prevent card press
+                                    if (Platform.OS !== 'web') {
+                                        if (!isCompleted) {
+                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                        } else {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         }
-                                        onToggle();
-                                    }} 
-                                    style={styles.checkbox}
-                                    hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                                >
-                                    {isCompleted ? (
-                                        <Animated.View entering={ZoomIn} exiting={ZoomOut}>
-                                            <Ionicons name="checkmark-circle" size={26} color={colors.success} />
-                                        </Animated.View>
-                                    ) : (
-                                        <Ionicons name="ellipse-outline" size={26} color={colors.textLight} />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Footer: Energy Badge + Progress */}
-                            <View style={styles.footerRow}>
-                                <View style={[styles.energyBadge, { backgroundColor: accentColor + '15' }]}>
-                                    <Ionicons name="flash" size={10} color={accentColor} style={{ marginRight: 4 }} />
-                                    <Text style={[styles.energyText, { color: accentColor }]}>
-                                        {energyLevel === 'MEDIUM' ? 'Mid Energy' : energyLevel === 'LOW' ? 'Recharge' : 'High Energy'}
-                                    </Text>
-                                </View>
-
-                                {/* Progress Bar */}
-                                {progress > 0 && !isCompleted && (
-                                     <View style={styles.miniProgress}>
-                                        <Text style={styles.progressText}>{progress}%</Text>
-                                        <View style={[styles.progressBarBG]}>
-                                            <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: accentColor }]} />
-                                        </View>
-                                    </View>
+                                    }
+                                    onToggle();
+                                }} 
+                                style={({ pressed }) => [
+                                    styles.checkbox,
+                                    { opacity: pressed ? 0.7 : 1 }
+                                ]}
+                                hitSlop={16}
+                            >
+                                {isCompleted ? (
+                                    <Animated.View entering={ZoomIn} exiting={ZoomOut}>
+                                        <Ionicons name="checkmark-circle" size={26} color={colors.success} />
+                                    </Animated.View>
+                                ) : (
+                                    <Ionicons name="ellipse-outline" size={26} color={colors.textLight} />
                                 )}
-                            </View>
+                            </Pressable>
                         </View>
-                    </TouchableOpacity>
+
+                        {/* Footer: Energy Badge + Progress */}
+                        <View style={styles.footerRow}>
+                            <View style={[styles.energyBadge, { backgroundColor: accentColor + '15' }]}>
+                                <Ionicons name="flash" size={10} color={accentColor} style={{ marginRight: 4 }} />
+                                <Text style={[styles.energyText, { color: accentColor }]}>
+                                    {energyLevel === 'MEDIUM' ? 'Mid Energy' : energyLevel === 'LOW' ? 'Recharge' : 'High Energy'}
+                                </Text>
+                            </View>
+
+                            {/* Progress Bar */}
+                            {progress > 0 && !isCompleted && (
+                                    <View style={styles.miniProgress}>
+                                    <Text style={styles.progressText}>{progress}%</Text>
+                                    <View style={[styles.progressBarBG]}>
+                                        <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: accentColor }]} />
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    </Pressable>
                 </Animated.View>
             </Swipeable>
         </Animated.View>
@@ -180,32 +184,43 @@ export const TaskItem = ({
 };
 
 const styles = StyleSheet.create({
+    card: {
+        borderRadius: 20, // Slightly cleaner radius
+        padding: spacing.m,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 3,
+                shadowColor: '#000', // Ensure shadow color helps elevation on some versions
+            },
+            web: {
+                boxShadow: '0px 2px 8px rgba(0,0,0,0.08)',
+            }
+        }),
+        marginHorizontal: 2, // Prevent horizontal clipping of shadow
+        marginBottom: 2, // Prevent bottom clipping
+    },
     timeRow: {
-        marginBottom: 6,
-        paddingLeft: 4, 
+        marginBottom: 8, // More breathing room
     },
     timeText: {
         ...typography.caption,
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
         color: colors.textSecondary,
         letterSpacing: 0.5,
-    },
-    card: {
-        borderRadius: 24,
-        padding: spacing.m,
-        ...shadows.soft,
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.02)',
+        textTransform: 'uppercase',
     },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: spacing.s,
+        marginBottom: spacing.m, // Increased spacing
         gap: spacing.m
     },
     title: {
@@ -217,11 +232,11 @@ const styles = StyleSheet.create({
     },
     completedTitle: {
         color: colors.textSecondary,
-        textDecorationLine: 'none',
-        opacity: 0.8
+        textDecorationLine: 'none', // Removed strikethrough for cleaner look
+        opacity: 0.7
     },
     checkbox: {
-        marginTop: 2
+        marginTop: 0, // Aligned with text top
     },
     footerRow: {
         flexDirection: 'row',
@@ -232,8 +247,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
+        paddingVertical: 5,
+        borderRadius: 10,
     },
     energyText: {
         fontSize: 11,
@@ -275,6 +290,11 @@ const styles = StyleSheet.create({
         backgroundColor: colors.success,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.soft
+        // Simple shadow for action button
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     }
 });
