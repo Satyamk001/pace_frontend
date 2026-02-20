@@ -13,6 +13,8 @@ import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
+import { EnergySelector } from '../components/EnergySelector';
+import { NotificationService } from '../services/NotificationService';
 
 export const TaskDetailScreen = ({ route, navigation }: any) => {
     const { todo } = route.params;
@@ -39,16 +41,14 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     const [isSaving, setIsSaving] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
-    const tomorrowStr = (() => {
+    const todayStr = (() => {
         const d = new Date();
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     })();
-    const initialDate = (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        return d;
-    })();
+
     const [dialogConfig, setDialogConfig] = useState<{
         visible: boolean;
         title: string;
@@ -59,10 +59,21 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     const closeDialog = () => setDialogConfig(prev => ({ ...prev, visible: false }));
 
     const handleSave = async () => {
+        const now = new Date();
+        if (hasTime && dueDate < now) {
+            setDialogConfig({
+                visible: true,
+                title: "Invalid Time",
+                message: "Please select a time in the future.",
+                actions: [{ text: "OK", onPress: closeDialog }]
+            });
+            return;
+        }
+
         setIsSaving(true);
         try {
             const completed = progress === 100 ? true : isCompleted;
-            await api.updateTodoDetails(todo.id, {
+            const updatedTodo = await api.updateTodoDetails(todo.id, {
                 title,
                 description,
                 energyLevel,
@@ -70,6 +81,24 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 isCompleted: completed,
                 dueDate: dueDate.toISOString(),
             });
+
+            // Reschedule notification dynamically based on updated state
+            if (completed) {
+                // If now completed, no need for notification
+                // Note: To be perfect, we should have a `cancelTodoNotification` but rescheduleAll isn't ideal for single edits. 
+                // For now, if we have time, we either overwrite the old system schedule or ignore. 
+                // We'll just call scheduleTodo, which inherently won't schedule if completed.
+            } else if (hasTime) {
+                // Mock shaping the object so scheduleTodo can read it properly
+                const mockTodo = {
+                  ...todo,
+                  title,
+                  is_completed: completed,
+                  due_date: dueDate.toISOString(),
+                };
+                await NotificationService.scheduleTodo(mockTodo);
+            }
+
             navigation.goBack();
         } catch (e) {
             console.error(e);
@@ -241,7 +270,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                         <CustomDatePicker
                             visible={showDatePicker}
                             initialDate={dueDate}
-                            minDate={tomorrowStr}
+                            minDate={todayStr}
                             onClose={() => setShowDatePicker(false)}
                             onConfirm={(date) => {
                                 const newDate = new Date(date);
@@ -278,44 +307,14 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                         )}
                     </View>
 
+
+
+
+
                     {/* Energy Level */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Energy Required</Text>
-                        <View style={styles.energyRow}>
-                            {['LOW', 'MEDIUM', 'HIGH'].map((level) => {
-                                const isSelected = energyLevel === level;
-                                let bg = colors.surface;
-                                let border = colors.border;
-                                let text = colors.textLight;
-                                let iconName = 'battery-charging-outline';
-
-                                if (level === 'LOW') { 
-                                    iconName = 'leaf-outline';
-                                    if(isSelected) { bg = colors.mood.great; border = colors.primary; text = colors.primary; }
-                                }
-                                if (level === 'MEDIUM') { 
-                                    iconName = 'partly-sunny-outline';
-                                    if(isSelected) { bg = colors.mood.okay; border = colors.accentDark; text = colors.accentDark; }
-                                }
-                                if (level === 'HIGH') { 
-                                    iconName = 'flame-outline';
-                                    if(isSelected) { bg = colors.mood.pain; border = colors.error; text = colors.text; }
-                                }
-
-                                return (
-                                    <TouchableOpacity 
-                                        key={level}
-                                        style={[styles.energyBtn, { backgroundColor: bg, borderColor: border }]}
-                                        onPress={() => setEnergyLevel(level as any)}
-                                    >
-                                        <Ionicons name={iconName as any} size={18} color={text} style={{ marginBottom: 4 }} />
-                                        <Text style={[styles.energyText, { color: text, fontWeight: isSelected ? 'bold' : 'normal' }]}>
-                                            {level === 'LOW' ? 'Light' : level === 'MEDIUM' ? 'Medium' : 'Heavy'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                        <EnergySelector value={energyLevel} onChange={setEnergyLevel} />
                     </View>
 
                     <View style={{ height: 100 }} />

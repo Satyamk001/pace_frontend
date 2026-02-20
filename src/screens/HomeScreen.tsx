@@ -8,11 +8,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { MoodSelector } from '../components/MoodSelector';
 import { HealthBanner } from '../components/HealthBanner';
 import { TaskItem } from '../components/TaskItem';
-import { MascotCorner } from '../components/MascotCorner';
 import { CompletionModal } from '../components/CompletionModal';
 import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
 import { useMoodTheme } from '../context/MoodContext';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { NotificationService } from '../services/NotificationService';
 
 export const HomeScreen = ({ navigation }: any) => {
   const { getToken, signOut } = useAuth();
@@ -75,7 +75,15 @@ export const HomeScreen = ({ navigation }: any) => {
 
   const handleRescheduleTodo = async (id: string, newDate: string) => {
       try {
-          await api.updateTodoDetails(id, { dueDate: newDate });
+          const updatedTodo = await api.updateTodoDetails(id, { dueDate: newDate });
+          
+          if (updatedTodo && updatedTodo.due_date && !updatedTodo.is_completed) {
+            const hasTime = new Date(updatedTodo.due_date).getHours() !== 0 || new Date(updatedTodo.due_date).getMinutes() !== 0;
+            if (hasTime) {
+                await NotificationService.scheduleTodo(updatedTodo);
+            }
+          }
+          
           setCompletionModalVisible(false);
           fetchData();
       } catch (e) {
@@ -194,7 +202,8 @@ export const HomeScreen = ({ navigation }: any) => {
                     isCompleted={todo.is_completed}
                     energyLevel={todo.energy_level}
                     progress={todo.progress}
-                    startTime={todo.due_date ? new Date(todo.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : undefined}
+                    dueDate={todo.due_date}
+                    feedback={todo.feedback}
                     onPress={() => {
                         if (todo.is_completed) {
                             navigation.navigate('TaskDetail', { todo });
@@ -237,7 +246,7 @@ export const HomeScreen = ({ navigation }: any) => {
         title={toggleTarget?.title}
       />
 
-      <MascotCorner mood="HAPPY" onPress={() => console.log("Mascot clicked!")} />
+      
     </ScreenLayout>
   );
 };

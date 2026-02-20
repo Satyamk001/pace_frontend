@@ -127,8 +127,11 @@ export const layout = {
 // ============================================================
 export const spacing = {
   xs: 8,
+  sm: 10, // Added
   s: 12,
+  md: 14, // Added
   m: 16,
+  lg: 20, // Added
   l: 24,
   xl: 32,
   xxl: 48,
@@ -139,8 +142,10 @@ export const spacing = {
 // ============================================================
 export const borderRadius = {
   s: 12,
-  m: 18,  // Bumped — rounder feels more premium in 2024
+  m: 18,
+  md: 22, // Added
   l: 26,
+  lg: 30, // Added
   xl: 36,
   round: 999,
 };
@@ -197,14 +202,36 @@ export const shadows = {
 // TYPOGRAPHY — tighter tracking, stronger hierarchy
 // ============================================================
 export const typography = {
-  header: {
-    fontSize: 30,               // Slightly larger — more presence
+  // New Semantic Hierarchy
+  h1: {
+    fontSize: 48,
     fontWeight: '700' as const,
     color: colors.text,
-    letterSpacing: -0.8,        // Tighter — feels editorial and refined
+    letterSpacing: -1.5,
+    lineHeight: 52,
+  },
+  h2: {
+    fontSize: 30,
+    fontWeight: '700' as const,
+    color: colors.text,
+    letterSpacing: -0.8,
     lineHeight: 36,
   },
-  subheader: {
+  h3: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: colors.text,
+    letterSpacing: -0.4,
+    lineHeight: 28,
+  },
+  header: { // Legacy compat
+    fontSize: 30,
+    fontWeight: '700' as const,
+    color: colors.text,
+    letterSpacing: -0.8,
+    lineHeight: 36,
+  },
+  subheader: { // Legacy compat
     fontSize: 20,
     fontWeight: '600' as const,
     color: colors.text,
@@ -214,7 +241,7 @@ export const typography = {
   body: {
     fontSize: 16,
     color: colors.textPrimary,
-    lineHeight: 25,             // Tightened — cleaner reading rhythm
+    lineHeight: 25,
     fontWeight: '400' as const,
   },
   bodyBold: {
@@ -223,10 +250,19 @@ export const typography = {
     color: colors.textPrimary,
     lineHeight: 25,
   },
+  button: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFF',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  },
   caption: {
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 19,
-    letterSpacing: 0.1,         // Subtler tracking — avoids "label" feel
+    letterSpacing: 0.1,
   },
 };
+
+export const fonts = typography;

@@ -1,18 +1,137 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions, Animated, PanResponder } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useAuth } from '@clerk/clerk-expo';
 import { colors, spacing, typography, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { ScheduleCard } from '../components/ScheduleCard';
 import { ScheduleListSkeleton } from '../components/ui/SkeletonLoader';
-import { MascotCorner } from '../components/MascotCorner';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Pressable } from 'react-native';
+
+interface ScheduleCardProps {
+    title: string;
+    dueDate: string;
+    energyLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    isCompleted: boolean;
+    progress?: number;
+    feedback?: string;
+    onPress: () => void;
+    onToggle: () => void;
+}
+
+const ScheduleCard = ({ title, dueDate, energyLevel, isCompleted, progress = 0, feedback, onPress, onToggle }: ScheduleCardProps) => {
+    const scale = useSharedValue(1);
+
+    const getEnergyStyles = () => {
+        switch (energyLevel) {
+            case 'LOW': return { bg: colors.mood.great + '1A', text: colors.mood.great };
+            case 'MEDIUM': return { bg: colors.mood.okay + '1A', text: colors.mood.okay };
+            case 'HIGH': return { bg: colors.mood.pain + '1A', text: colors.mood.pain };
+            default: return { bg: colors.mood.okay + '1A', text: colors.mood.okay };
+        }
+    };
+    const energyStyle = getEnergyStyles();
+
+    const getFormattedDate = () => {
+        if (!dueDate) return { timeText: '', isWarning: false };
+        const date = new Date(dueDate);
+        const now = new Date();
+        const isOverdue = date < now && !isCompleted;
+        const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        return { timeText: timeString, isWarning: isOverdue };
+    };
+    const dateInfo = getFormattedDate();
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    const isFullyDone = isCompleted || progress === 100;
+
+    return (
+        <AnimatedReanimated.View style={[styles.timelineItem, animatedStyle]}>
+            
+            {/* LEFT COLUMN: Time & Node */}
+            <View style={styles.timelineLeftColumn}>
+                <Text style={[styles.timelineTimeText, dateInfo.isWarning && { color: colors.warning }]}>
+                    {dateInfo.timeText}
+                </Text>
+                
+                <View style={styles.timelineNodeContainer}>
+                    <View style={[styles.timelineLine, isFullyDone && styles.timelineLineCompleted]} />
+                    <View style={[
+                        styles.timelineNode,
+                        isFullyDone ? styles.timelineNodeCompleted : 
+                        (dateInfo.isWarning ? styles.timelineNodeMissed : styles.timelineNodeUpcoming)
+                    ]}>
+                        {isFullyDone && <Ionicons name="checkmark" size={10} color={colors.surface} />}
+                    </View>
+                </View>
+            </View>
+
+            {/* RIGHT COLUMN: Task Card */}
+             <Pressable
+                onPress={onPress}
+                onPressIn={() => scale.value = withSpring(0.98)}
+                onPressOut={() => scale.value = withSpring(1)}
+                style={[
+                    styles.timelineRightColumn,
+                    isFullyDone && styles.timelineRightColumnCompleted
+                ]}
+            >
+                {isFullyDone && <View style={styles.completedAccentStrip} />}
+                
+                {/* TOP ROW */}
+                <View style={styles.cardTopRow}>
+                    <Text style={[styles.cardTitle, isFullyDone && styles.completedTitle]} numberOfLines={1}>
+                        {title}
+                    </Text>
+                    <View style={styles.cardStatusContainer}>
+                        {dateInfo.isWarning && <Text style={styles.missedLabel}>Missed</Text>}
+                        <Pressable onPress={onToggle} hitSlop={16}>
+                            {isFullyDone ? (
+                                <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
+                            ) : (
+                                <Ionicons name="ellipse-outline" size={24} color={colors.border} />
+                            )}
+                        </Pressable>
+                    </View>
+                </View>
+
+                {/* MIDDLE ROW */}
+                {feedback ? (
+                    <View style={styles.cardMiddleRow}>
+                        <Text style={styles.feedbackText} numberOfLines={1}>{feedback}</Text>
+                    </View>
+                ) : null}
+
+                {/* BOTTOM ROW */}
+                <View style={styles.cardBottomRow}>
+                    <View style={[styles.energyBadge, { backgroundColor: energyStyle.bg }]}>
+                        <Text style={[styles.energyText, { color: energyStyle.text }]}>{energyLevel}</Text>
+                    </View>
+                    
+                    {progress > 0 && progress < 100 && !isFullyDone && (
+                        <View style={styles.miniProgressContainer}>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                            </View>
+                        </View>
+                    )}
+                </View>
+            </Pressable>
+        </AnimatedReanimated.View>
+    );
+};
 import { Calendar, DateData } from 'react-native-calendars';
 import { getLocalDateKey } from '../utils/dateUtils';
 import { CompletionModal } from '../components/CompletionModal';
 import { ProgressChart } from 'react-native-chart-kit';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
+import { NotificationService } from '../services/NotificationService';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const screenWidth = Dimensions.get('window').width;
@@ -171,10 +290,20 @@ export const CalendarScreen = ({ navigation }: any) => {
       ));
 
       try {
-          await api.updateTodoDetails(selectedTask.id, { 
+          // Send to API
+          const updatedTodo = await api.updateTodoDetails(selectedTask.id, { 
               progress, 
               isCompleted 
           });
+          
+          if (updatedTodo && !isCompleted && updatedTodo.due_date) {
+            // Restore notification if it was un-completed directly from the calendar list
+            const hasTime = new Date(updatedTodo.due_date).getHours() !== 0 || new Date(updatedTodo.due_date).getMinutes() !== 0;
+            if (hasTime) {
+                await NotificationService.scheduleTodo(updatedTodo);
+            }
+          }
+
           fetchCalendarStats();
       } catch (e) {
           console.error(e);
@@ -232,26 +361,48 @@ export const CalendarScreen = ({ navigation }: any) => {
       });
   };
 
-  // Pan Responder for Week Swipe
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 20; // Horizontal swipe only
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > 50) {
-          changeWeek('PREV');
-        } else if (gestureState.dx < -50) {
-          changeWeek('NEXT');
+  // State for Month View navigation (independent of selectedDate)
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Sync currentMonth when switching views or selecting a date from other sources
+  useEffect(() => {
+     setCurrentMonth(new Date(selectedDate));
+  }, [viewMode]); // Only sync on view entry, not every selectedDate change (optional, but consistent)
+
+    const onSwipeEvent = (event: any) => {
+        const { translationX, state } = event.nativeEvent;
+        // 5 corresponds to State.ACTIVE, but we can just use the end of gesture instead:
+        if (state === 5) { // State.END
+            if (translationX > 50) {
+                // Swipe Right (Previous)
+                if (viewMode === 'WEEK') {
+                    changeWeek('PREV');
+                } else {
+                    setCurrentMonth(prev => {
+                        const newDate = new Date(prev);
+                        newDate.setMonth(newDate.getMonth() - 1);
+                        return newDate;
+                    });
+                }
+            } else if (translationX < -50) {
+                // Swipe Left (Next)
+                if (viewMode === 'WEEK') {
+                    changeWeek('NEXT');
+                } else {
+                    setCurrentMonth(prev => {
+                        const newDate = new Date(prev);
+                        newDate.setMonth(newDate.getMonth() + 1);
+                        return newDate;
+                    });
+                }
+            }
         }
-      },
-    })
-  ).current;
+    };
 
   const onMonthDayPress = (day: DateData) => {
       const localDate = new Date(day.timestamp + new Date().getTimezoneOffset() * 60 * 1000);
-      // Removed future check to allow planning
       setSelectedDate(localDate);
+      setCurrentMonth(localDate); // Sync view
   };
 
   const renderWeekView = () => {
@@ -263,45 +414,45 @@ export const CalendarScreen = ({ navigation }: any) => {
       }
 
       return (
-          <View style={styles.weekContainer} {...panResponder.panHandlers}>
-             <View style={styles.weekHeader}>
-                 <Text style={styles.monthTitle}>
-                     {weekStartDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                 </Text>
-             </View>
+          <PanGestureHandler onHandlerStateChange={onSwipeEvent} activeOffsetX={[-20, 20]}>
+              <View style={styles.weekContainer}>
+                 <View style={styles.weekHeader}>
+                     <Text style={styles.monthTitle}>
+                         {weekStartDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                     </Text>
+                 </View>
 
-             <View style={styles.weekRow}>
-                 {weekDates.map((date, index) => {
-                     const isSelected = date.toDateString() === selectedDate.toDateString();
-                     const isToday = date.toDateString() === new Date().toDateString();
-                     
-                     return (
-                         <TouchableOpacity 
-                            key={index} 
-                            style={[
-                                styles.dateItem,
-                                isSelected && styles.selectedDateItem,
-                                isToday && !isSelected && styles.todayDateItem
-                            ]}
-                            onPress={() => {
-                                // Removed future check
-                                setSelectedDate(date);
-                            }}
-                         >
-                             <Text style={[styles.dayName, isSelected && styles.selectedDayName]}>
-                                 {DAYS[date.getDay()]}
-                             </Text>
-                             <Text style={[styles.dayNum, isSelected && styles.selectedDayNum]}>
-                                 {date.getDate()}
-                             </Text>
-                         </TouchableOpacity>
-                     );
-                 })}
-             </View>
-          </View>
+                 <View style={styles.weekRow}>
+                     {weekDates.map((date, index) => {
+                         const isSelected = date.toDateString() === selectedDate.toDateString();
+                         const isToday = date.toDateString() === new Date().toDateString();
+                         
+                         return (
+                             <TouchableOpacity 
+                                key={index} 
+                                style={[
+                                    styles.dateItem,
+                                    isSelected && styles.selectedDateItem,
+                                    isToday && !isSelected && styles.todayDateItem
+                                ]}
+                                onPress={() => {
+                                    setSelectedDate(date);
+                                }}
+                             >
+                                 <Text style={[styles.dayName, isSelected && styles.selectedDayName]}>
+                                     {DAYS[date.getDay()]}
+                                 </Text>
+                                 <Text style={[styles.dayNum, isSelected && styles.selectedDayNum]}>
+                                     {date.getDate()}
+                                 </Text>
+                             </TouchableOpacity>
+                         );
+                     })}
+                 </View>
+              </View>
+          </PanGestureHandler>
       );
   };
-
 
   const [lastScrollY, setLastScrollY] = useState(0);
 
@@ -450,57 +601,69 @@ export const CalendarScreen = ({ navigation }: any) => {
        <View style={styles.timelineContainer}> 
            {/* Collapsible Month View */}
            {viewMode === 'MONTH' ? (
-                <View>
-                    <Animated.View style={{ height: calendarHeightAnim, opacity: calendarOpacity, overflow: 'hidden' }}>
-                        <Calendar
-                            current={getLocalDateKey(selectedDate)}
-                            onDayPress={onMonthDayPress}
-                            enableSwipeMonths={true}
-                            hideArrows={true}
-                            markingType={'custom'}
-                            markedDates={markedDates}
-                            // maxDate removed to allow future planning
-                            monthFormat={'MMMM yyyy'}
-                            theme={{
-                                backgroundColor: colors.background,
-                                calendarBackground: colors.background,
-                                textSectionTitleColor: colors.textLight,
-                                selectedDayBackgroundColor: colors.primary,
-                                selectedDayTextColor: '#ffffff',
-                                todayTextColor: colors.accent,
-                                dayTextColor: colors.text,
-                                textDisabledColor: '#d9e1e8',
-                                arrowColor: colors.primary,
-                                disabledArrowColor: '#d9e1e8',
-                                monthTextColor: colors.text,
-                                indicatorColor: colors.primary,
-                                textDayFontWeight: '500',
-                                textMonthFontWeight: 'bold',
-                                textDayHeaderFontWeight: '400',
-                                textDayFontSize: 16,
-                                textMonthFontSize: 18,
-                                textDayHeaderFontSize: 12
-                            }}
-                        />
-                    </Animated.View>
+                <PanGestureHandler onHandlerStateChange={onSwipeEvent} activeOffsetX={[-20, 20]}>
+                    <View>
+                        <Animated.View style={{ height: calendarHeightAnim, opacity: calendarOpacity, overflow: 'hidden' }}>
+                            <Calendar
+                                current={getLocalDateKey(currentMonth)}
+                                onDayPress={onMonthDayPress}
+                                onMonthChange={(month: any) => {
+                                    const newDate = new Date(month.timestamp + new Date().getTimezoneOffset() * 60 * 1000); // Standardize timezone
+                                    setCurrentMonth(newDate);
+                                }}
+                                enableSwipeMonths={false} // We handle swipe manually
+                                hideArrows={false}
+                                renderArrow={(direction: 'left' | 'right') => (
+                                    <Ionicons 
+                                        name={direction === 'left' ? "chevron-back" : "chevron-forward"} 
+                                        size={24} 
+                                        color={colors.primary} 
+                                    />
+                                )}
+                                markingType={'custom'}
+                                markedDates={markedDates}
+                                monthFormat={'MMMM yyyy'}
+                                theme={{
+                                    // backgroundColor: colors.background, // Match screen background for cleaner look (no "muddy" blocks)
+                                    // calendarBackground: colors.background,
+                                    textSectionTitleColor: colors.textLight,
+                                    selectedDayBackgroundColor: colors.primary,
+                                    selectedDayTextColor: '#ffffff',
+                                    todayTextColor: colors.accent,
+                                    dayTextColor: colors.text,
+                                    textDisabledColor: '#E0E0E0', 
+                                    arrowColor: colors.primary,
+                                    disabledArrowColor: '#E0E0E0',
+                                    monthTextColor: colors.text,
+                                    indicatorColor: colors.primary,
+                                    textDayFontWeight: '500',
+                                    textMonthFontWeight: '700', // Bolder title
+                                    textDayHeaderFontWeight: '500',
+                                    textDayFontSize: 16,
+                                    textMonthFontSize: 18,
+                                    textDayHeaderFontSize: 12
+                                }}
+                            />
+                        </Animated.View>
 
-                    {/* Legend — collapses in height and fades with calendar */}
-                    <Animated.View style={[styles.legend, { opacity: calendarOpacity, height: legendHeight, overflow: 'hidden' }]} pointerEvents="none">
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                            <View style={[styles.dot, {backgroundColor: colors.mood.pain, width: 12, height: 12, borderRadius: 2}]} />
-                            <Text style={styles.legendText}>High Pain</Text>
-                        </View>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                            <View style={[styles.dot, {borderColor: colors.accent, borderWidth: 1, backgroundColor: 'transparent', width: 12, height: 12, borderRadius: 2}]} />
-                            <Text style={styles.legendText}>All Tasks Done</Text>
-                        </View>
-                    </Animated.View>
+                        {/* Legend — collapses in height and fades with calendar */}
+                        <Animated.View style={[styles.legend, { opacity: calendarOpacity, height: legendHeight, overflow: 'hidden' }]} pointerEvents="none">
+                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                                <View style={[styles.dot, {backgroundColor: colors.mood.pain, width: 12, height: 12, borderRadius: 2}]} />
+                                <Text style={styles.legendText}>High Pain</Text>
+                            </View>
+                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                                <View style={[styles.dot, {borderColor: colors.accent, borderWidth: 1, backgroundColor: 'transparent', width: 12, height: 12, borderRadius: 2}]} />
+                                <Text style={styles.legendText}>All Tasks Done</Text>
+                            </View>
+                        </Animated.View>
 
-                    {/* Pull Handle — always visible so user can expand/collapse */}
-                    <View {...handlePanResponder.panHandlers} style={styles.sliderHandleContainer}>
-                        <View style={styles.sliderHandle} />
+                        {/* Pull Handle — always visible so user can expand/collapse */}
+                        <View {...handlePanResponder.panHandlers} style={styles.sliderHandleContainer}>
+                            <View style={styles.sliderHandle} />
+                        </View>
                     </View>
-                </View>
+                </PanGestureHandler>
            ) : (
                renderWeekView()
            )}
@@ -519,7 +682,6 @@ export const CalendarScreen = ({ navigation }: any) => {
             onScroll={handleScroll}
             scrollEventThrottle={16}
         >
-            {/* Daily Overview Card */}
             {Boolean(dayLog || healthMetrics || dayTasks.length > 0) && (
                 <View style={styles.summaryCard}>
                     <View style={styles.summaryTopRow}>
@@ -591,11 +753,11 @@ export const CalendarScreen = ({ navigation }: any) => {
                     <ScheduleCard 
                         key={task.id}
                         title={task.title}
-                        startTime={task.due_date ? new Date(task.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Anytime"}
-                        type={task.energy_level === 'HIGH' ? 'TASK' : task.energy_level === 'LOW' ? 'BREAK' : 'MEETING'}
-                        color={task.energy_level === 'HIGH' ? colors.mood.low : task.energy_level === 'LOW' ? colors.mood.great : colors.mood.okay}
+                        dueDate={task.due_date}
+                        energyLevel={task.energy_level}
                         isCompleted={task.is_completed}
                         progress={task.progress}
+                        feedback={task.feedback}
                         onPress={() => navigation.navigate('TaskDetail', { todo: task })}
                         onToggle={() => handleToggleTask(task)}
                     />
@@ -609,7 +771,7 @@ export const CalendarScreen = ({ navigation }: any) => {
         </Animated.ScrollView>
       </View>
 
-      <MascotCorner mood="Working" />
+
       
       {/* Completion Modal */}
       <CompletionModal
@@ -634,8 +796,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.l, // Reduced from spacing.xs
     paddingTop: spacing.m,
+    paddingBottom: spacing.xs // Add slight padding inside header instead of margin
   },
   viewToggle: {
       flexDirection: 'row',
@@ -745,7 +908,8 @@ const styles = StyleSheet.create({
       backgroundColor: colors.surface,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,
-      paddingTop: spacing.s,
+      paddingTop: spacing.l, // Increased padding to look better with 0 margin
+      marginTop: -spacing.s, // Pull it up slightly to overlap
       ...shadows.soft,
       marginHorizontal: 0,
   },
@@ -888,5 +1052,150 @@ const styles = StyleSheet.create({
       height: 4,
       borderRadius: 2,
       backgroundColor: '#E0E0E0',
+  },
+  // --- NEW FLAT / TONAL SCHEDULE CARD STYLES ---
+  timelineItem: {
+      flexDirection: 'row',
+      marginBottom: spacing.m,
+      marginHorizontal: spacing.l,
+  },
+  timelineLeftColumn: {
+      width: 60,
+      alignItems: 'center',
+      marginRight: spacing.s,
+  },
+  timelineTimeText: {
+      ...typography.caption,
+      fontSize: 12,
+      color: colors.textLight,
+      marginBottom: spacing.s,
+      textAlign: 'center',
+  },
+  timelineNodeContainer: {
+      alignItems: 'center',
+      flex: 1,
+      width: 20,
+  },
+  timelineLine: {
+      position: 'absolute',
+      top: 0,
+      bottom: -spacing.m,
+      width: 2,
+      backgroundColor: colors.border,
+      zIndex: 1,
+  },
+  timelineLineCompleted: {
+      opacity: 0.3,
+  },
+  timelineNode: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      zIndex: 2,
+      marginTop: 2,
+  },
+  timelineNodeUpcoming: {
+      borderWidth: 2,
+      borderColor: colors.border,
+  },
+  timelineNodeCompleted: {
+      backgroundColor: colors.accent,
+  },
+  timelineNodeMissed: {
+      backgroundColor: colors.warning,
+      borderWidth: 0,
+  },
+  timelineRightColumn: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.m,
+      padding: spacing.m,
+      borderWidth: 1,
+      borderColor: colors.border + '80', // Subtle 50% opacity border
+      elevation: 0,
+      shadowOpacity: 0,
+      overflow: 'hidden',
+  },
+  timelineRightColumnCompleted: {
+      borderColor: colors.border + '40', // even more subtle border when done
+  },
+  completedAccentStrip: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 3,
+      backgroundColor: colors.accent,
+  },
+  cardTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: spacing.xs,
+  },
+  cardStatusContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.s,
+  },
+  missedLabel: {
+      ...typography.caption,
+      color: colors.warning,
+      fontWeight: 'bold',
+  },
+  cardMiddleRow: {
+      marginBottom: spacing.sm,
+  },
+  cardTitle: {
+      ...typography.h3,
+      color: colors.text,
+      fontSize: 16,
+      flex: 1, // ensure it shrinks instead of overlapping
+  },
+  completedTitle: {
+      opacity: 0.85,
+      textDecorationLine: 'line-through',
+  },
+  feedbackText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginTop: spacing.xs,
+      fontStyle: 'italic',
+  },
+  cardBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+  },
+  energyBadge: {
+      borderRadius: borderRadius.round,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+  },
+  energyText: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+  },
+  miniProgressContainer: {
+      flex: 1,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+  },
+  progressBarBg: {
+      width: 60, // Fixed small width for the mini progress indicator
+      height: 4,
+      backgroundColor: colors.l2,
+      borderRadius: borderRadius.round,
+      overflow: 'hidden',
+  },
+  progressBarFill: {
+      height: '100%',
+      backgroundColor: colors.accent,
+      borderRadius: borderRadius.round,
   }
 });

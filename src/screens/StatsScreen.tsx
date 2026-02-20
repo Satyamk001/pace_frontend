@@ -5,8 +5,7 @@ import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
 import { HealthTrendsChart } from '../components/HealthTrendsChart';
 import { useFocusEffect } from '@react-navigation/native';
-import { MascotCorner } from '../components/MascotCorner';
-import { StatsContentSkeleton } from '../components/ui/SkeletonLoader';
+import { StatsContentSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 
@@ -28,6 +27,9 @@ export const StatsScreen = ({ navigation }: any) => {
   const [graphData, setGraphData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+
   const [refreshing, setRefreshing] = useState(false);
   
   // Filter State
@@ -73,11 +75,14 @@ export const StatsScreen = ({ navigation }: any) => {
 
   // 2. Fetch Summary Data (Based on Selected Range)
   const fetchSummaryStats = async () => {
+      setIsStatsLoading(true);
       try {
           const data = await api.getStats(selectedRange);
           setSummaryData(data);
       } catch (e) {
           console.error('Failed to fetch summary stats:', e);
+      } finally {
+          setIsStatsLoading(false);
       }
   };
 
@@ -92,7 +97,7 @@ export const StatsScreen = ({ navigation }: any) => {
     setRefreshing(true);
     await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
     setRefreshing(false);
-  }, [selectedRange, currentDate]); // Refresh should respect current selections if possible, or reset? Usually keep.
+  }, [selectedRange, currentDate]);
 
   // Initial Load
   useFocusEffect(
@@ -105,10 +110,6 @@ export const StatsScreen = ({ navigation }: any) => {
   useEffect(() => {
       fetchSummaryStats();
   }, [selectedRange]);
-
-  // --- Graph Logic (Uses graphData) ---
-
-  // --- Graph Logic (Uses graphData) ---
 
   const getChartData = () => {
       if (!graphData?.history?.health) return [];
@@ -148,6 +149,9 @@ export const StatsScreen = ({ navigation }: any) => {
   return (
     <ScreenLayout edges={['top']}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: spacing.md }}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Insights</Text>
       </View>
 
@@ -175,27 +179,46 @@ export const StatsScreen = ({ navigation }: any) => {
       >
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-            <View style={styles.statsRow}>
-                <View style={styles.statsItem}>
-                    <Text style={styles.statsValue}>{summary.totalTasks || 0}</Text>
-                    <Text style={styles.statsLabel}>Tasks Done</Text>
-                </View>
-                <View style={styles.statsItem}>
-                    <Text style={styles.statsValue}>{summary.streak || 0}🔥</Text>
-                    <Text style={styles.statsLabel}>Streak</Text>
-                </View>
-            </View>
-            <View style={styles.statsDivider} />
-            <View style={styles.statsRow}>
-                <View style={styles.statsItem}>
-                    <Text style={[styles.statsValue, {color: colors.success}]}>{summary.calmDays || 0}</Text>
-                    <Text style={styles.statsLabel}>Calm Days</Text>
-                </View>
-                <View style={styles.statsItem}>
-                    <Text style={[styles.statsValue, {color: colors.error}]}>{summary.painDays || 0}</Text>
-                    <Text style={styles.statsLabel}>Pain Days</Text>
-                </View>
-            </View>
+                <>
+                    <View style={styles.statsRow}>
+                        <View style={styles.statsItem}>
+                            {isStatsLoading ? (
+                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
+                            ) : (
+                                <Text style={styles.statsValue}>{summary.totalTasks || 0}</Text>
+                            )}
+                            <Text style={styles.statsLabel}>Tasks Done</Text>
+                        </View>
+                        <View style={styles.statsItem}>
+                            {isStatsLoading ? (
+                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
+                            ) : (
+                                <Text style={styles.statsValue}>{summary.streak || 0}🔥</Text>
+                            )}
+                            <Text style={styles.statsLabel}>Streak</Text>
+                        </View>
+                    </View>
+                    <View style={styles.statsDivider} />
+                    <View style={styles.statsRow}>
+                        <View style={styles.statsItem}>
+                            {isStatsLoading ? (
+                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
+                            ) : (
+                                <Text style={[styles.statsValue, {color: colors.accent}]}>{summary.calmDays || 0}</Text>
+                            )}
+                            <Text style={styles.statsLabel}>Calm Days</Text>
+                        </View>
+                        <View style={styles.statsItem}>
+                            {isStatsLoading ? (
+                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
+                            ) : (
+                                <Text style={[styles.statsValue, {color: colors.error}]}>{summary.painDays || 0}</Text>
+                            )}
+                            <Text style={styles.statsLabel}>Pain Days</Text>
+                        </View>
+                    </View>
+                </>
+
         </View>
 
                 {/* Journal Bar Chart */}
@@ -260,7 +283,7 @@ export const StatsScreen = ({ navigation }: any) => {
       </ScrollView>
       )}
 
-      <MascotCorner mood="SLEEPY" />
+      
     </ScreenLayout>
   );
 };
@@ -274,6 +297,8 @@ const styles = StyleSheet.create({
       paddingHorizontal: spacing.l,
       marginBottom: spacing.m,
       paddingTop: spacing.m,
+      flexDirection: 'row',
+      alignItems: 'center',
   },
   headerTitle: {
       ...typography.header,

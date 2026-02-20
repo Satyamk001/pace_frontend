@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, shadows, borderRadius, typography, spacing } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ProgressBar } from './ui/ProgressBar';
+import { ScalePressable } from './ui/ScalePressable';
 
 interface ScheduleCardProps {
     title: string;
@@ -31,12 +32,19 @@ export const ScheduleCard = ({
     const accentColor = color; 
     
     // Soft tint for completed state instead of grey opacity
+    // FIXED: Removed shadow and border for completed items to avoid "muddy" look
     const containerStyle = isCompleted 
-        ? { backgroundColor: colors.palette.mint + '15', borderColor: 'transparent' } // Soft Mint tint
+        ? { 
+            backgroundColor: colors.palette.mint + '15', 
+            borderColor: 'transparent',
+            borderWidth: 0,
+            shadowOpacity: 0,
+            elevation: 0 
+          } 
         : { backgroundColor: colors.surface };
 
     return (
-        <TouchableOpacity style={styles.container} onPress={onPress}>
+        <ScalePressable style={styles.container} onPress={onPress}>
             {/* 1. Time Label (Above Card) */}
             <View style={styles.timeRow}>
                 <Text style={styles.timeText}>
@@ -84,7 +92,7 @@ export const ScheduleCard = ({
                     )}
                 </View>
             </View>
-        </TouchableOpacity>
+        </ScalePressable>
     );
 };
 

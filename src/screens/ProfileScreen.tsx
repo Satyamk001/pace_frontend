@@ -3,18 +3,25 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, RefreshCon
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
 import { MascotAvatar } from '../components/MascotAvatar';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProfileSkeleton, ProfileSettingsSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
+import { StorageService } from '../services/StorageService';
+import { NotificationService } from '../services/NotificationService';
+import { useOffline } from '../context/OfflineContext';
+import { ExportHelper } from '../utils/ExportHelper';
+import { useSubscription } from '../context/SubscriptionContext';
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { signOut, getToken } = useAuth();
     const { user, isLoaded } = useUser();
     const api = createApiService(getToken);
+    const { syncAllData, lastSynced } = useOffline();
+    const { isProUser } = useSubscription();
 
     const [stats, setStats] = useState({
         streak: 0,
@@ -36,12 +43,23 @@ export const ProfileScreen = ({ navigation }: any) => {
 
     const fetchStats = async () => {
         try {
-            const data = await api.getStats('7'); // Start with default range, expecting summary in response
-            if (data.summary) {
-                setStats(data.summary);
-            }
+            // First fetch and cache raw data for offline support and 7-day rolling calculations
+            const [allTodos, calendar] = await Promise.all([
+                api.getTodos(), // fetches all historically
+                api.getCalendarData() // fetches historical calendar mapping
+            ]);
+
+            await StorageService.syncTodos(allTodos);
+            await StorageService.syncCalendar(calendar);
+
+            // Calculate locally scoped 7-day stats as requested (Feature 1)
+            const localStats = await StorageService.calculate7DayStats();
+            setStats(localStats);
         } catch (e) {
-            console.error(e);
+            console.error('Error in fetchStats:', e);
+            // Fallback to locally cached stats if network is unavailable
+            const localStats = await StorageService.calculate7DayStats();
+            setStats(localStats);
         } finally {
             setLoading(false);
         }
@@ -74,38 +92,59 @@ export const ProfileScreen = ({ navigation }: any) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchStats();
+            loadNotificationState();
+        }, [])
+    );
+
+    const loadNotificationState = async () => {
+        const isEnabled = await NotificationService.getNotificationsEnabled();
+        setNotificationsEnabled(isEnabled);
+    };
+
     const handleSync = async () => {
         setIsSyncing(true);
-        // Simulate sync
-        setTimeout(() => {
-            setIsSyncing(false);
+        try {
+            await syncAllData();
             setDialogConfig({
                 visible: true,
                 title: "Sync Complete",
-                message: "Your data is backed up safely! ☁️",
+                message: "Your data is backed up safely.",
                 actions: [{ text: "OK", onPress: closeDialog }]
             });
-        }, 2000);
+        } catch (e) {
+            setDialogConfig({
+                visible: true,
+                title: "Sync Failed",
+                message: "Please check your network and try again.",
+                actions: [{ text: "OK", onPress: closeDialog }]
+            });
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const handleExport = () => {
+        if (!isProUser) {
+            navigation.navigate('Premium');
+            return;
+        }
+
         setDialogConfig({
             visible: true,
             title: "Export Data",
-            message: "Preparing your data for export...",
+            message: "Choose your preferred export format:",
             actions: [
                 { text: "Cancel", style: "cancel", onPress: closeDialog },
-                { text: "Download", onPress: () => {
+                { text: "Export CSV", onPress: async () => {
                     closeDialog();
-                    // Simulate download success strictly after
-                    setTimeout(() => {
-                        setDialogConfig({
-                            visible: true,
-                            title: "Success",
-                            message: "Data exported to CSV.",
-                            actions: [{ text: "OK", onPress: closeDialog }]
-                        });
-                    }, 500);
+                    await ExportHelper.exportToCSV();
+                }},
+                { text: "Export PDF", onPress: async () => {
+                    closeDialog();
+                    await ExportHelper.exportToPDF();
                 }}
             ]
         });
@@ -120,7 +159,11 @@ export const ProfileScreen = ({ navigation }: any) => {
         });
     };
 
-    const toggleSwitch = () => setNotificationsEnabled(previousState => !previousState);
+    const toggleSwitch = async () => {
+        const newValue = !notificationsEnabled;
+        setNotificationsEnabled(newValue);
+        await NotificationService.setNotificationsEnabled(newValue);
+    };
 
     if (!isLoaded) {
         return <ProfileSkeleton />;
@@ -141,7 +184,27 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <BackButton style={styles.backBtn} />
                 </View>
                 <MascotAvatar size="large" imageUrl={user?.imageUrl} />
-                <Text style={styles.userName}>{user?.fullName || "Pace User"}</Text>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.m }}>
+                    <Text style={[styles.userName, { marginTop: 0 }]}>{user?.fullName || "Pace User"}</Text>
+                    {isProUser && (
+                        <View style={{ 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            backgroundColor: '#FFFBF0', 
+                            paddingHorizontal: 6, 
+                            paddingVertical: 2, 
+                            borderRadius: 12, 
+                            marginLeft: 8, 
+                            borderWidth: 1, 
+                            borderColor: colors.warning + '40' 
+                        }}>
+                            <MaterialCommunityIcons name="crown" size={12} color={colors.warning} style={{ marginRight: 2 }} />
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: colors.warning }}>PRO</Text>
+                        </View>
+                    )}
+                </View>
+                
                 <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
 
 
@@ -174,6 +237,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                         <Text style={styles.statLabel}>Calm Days</Text>
                     </View>
                 </View>
+                <Text style={styles.statsSubLabel}>* Last 7 days</Text>
             </View>
 
             {/* Scrollable Content */}
@@ -184,24 +248,26 @@ export const ProfileScreen = ({ navigation }: any) => {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-            <TouchableOpacity 
-                style={styles.premiumCard}
-                onPress={() => navigation.navigate('Premium')}
-            >
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                    <View style={styles.premiumIcon}>
-                        <Ionicons name="diamond" size={24} color="#FFF" />
+            {!isProUser && (
+                <TouchableOpacity 
+                    style={styles.premiumCard}
+                    onPress={() => navigation.navigate('Premium')}
+                >
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
+                        <View style={styles.premiumIcon}>
+                            <Ionicons name="diamond" size={24} color="#FFF" />
+                        </View>
+                        <View>
+                            <Text style={styles.premiumTitle}>Pace Pro</Text>
+                            <Text style={styles.premiumSubtitle}>Unlock advanced insights & themes.</Text>
+                        </View>
                     </View>
-                    <View>
-                        <Text style={styles.premiumTitle}>Pace Pro</Text>
-                        <Text style={styles.premiumSubtitle}>Unlock advanced insights & themes.</Text>
-                    </View>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#DAA520" />
-            </TouchableOpacity>
+                    <Ionicons name="chevron-forward" size={20} color="#DAA520" />
+                </TouchableOpacity>
+            )}
             
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Settings</Text>
+                <Text style={styles.sectionTitle}></Text>
                 <View style={styles.settingsList}>
                     
                     {/* Notifications Toggle */}
@@ -227,7 +293,14 @@ export const ProfileScreen = ({ navigation }: any) => {
                             <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
                                 <Ionicons name={isSyncing ? "sync" : "sync-outline"} size={20} color={colors.text} />
                             </View>
-                            <Text style={styles.settingLabel}>{isSyncing ? "Syncing..." : "Sync Data"}</Text>
+                            <View>
+                                <Text style={styles.settingLabel}>{isSyncing ? "Syncing..." : "Sync Data"}</Text>
+                                <Text style={[styles.settingLabel, { fontSize: 12, color: colors.textLight, marginTop: 2, fontWeight: 'normal' }]}>
+                                    Last synced: {lastSynced ? new Date(lastSynced).toLocaleString(undefined, {
+                                        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                                    }) : 'Never'}
+                                </Text>
+                            </View>
                         </View>
                         {isSyncing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textLight} />}
                     </TouchableOpacity>
@@ -322,6 +395,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: colors.textLight,
         fontWeight: '600',
+    },
+    statsSubLabel: {
+        fontSize: 10,
+        color: colors.textLight,
+        marginTop: spacing.s,
+        fontStyle: 'italic',
+        opacity: 0.7,
     },
     premiumCard: {
         flexDirection: 'row',

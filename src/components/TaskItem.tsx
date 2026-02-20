@@ -1,9 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withSpring, 
     FadeInDown, 
     ZoomIn,
     ZoomOut,
@@ -19,8 +16,8 @@ interface TaskItemProps {
     isCompleted: boolean;
     energyLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     progress?: number;
-    startTime?: string;
-    endTime?: string;
+    feedback?: string;
+    dueDate?: string;
     index?: number;
     onToggle: () => void;
     onPress?: () => void;
@@ -31,47 +28,61 @@ export const TaskItem = ({
     title, 
     isCompleted, 
     energyLevel, 
-    progress = 0, 
-    startTime,
-    endTime,
+    progress = 0,
+    feedback,
+    dueDate,
     index = 0,
     onToggle, 
     onPress, 
     onLongPress 
 }: TaskItemProps) => {
-    const scale = useSharedValue(1);
 
-    // Soft tint for completed state
-    const containerStyle = isCompleted 
-        ? { backgroundColor: colors.palette.mint + '15' } 
-        : { backgroundColor: colors.surface };
-
-    const getEnergyColor = () => {
+    const getEnergyStyles = () => {
         switch (energyLevel) {
-            case 'HIGH': return colors.mood.pain;   // Soft red
-            case 'LOW':  return colors.mood.great;  // Soft mint
-            default:     return colors.mood.okay;   // Warm yellow
+            case 'LOW':
+                return { bg: colors.mood.great + '1A', text: colors.mood.great };
+            case 'MEDIUM':
+                return { bg: colors.mood.okay + '1A', text: colors.mood.okay };
+            case 'HIGH':
+                return { bg: colors.mood.pain + '1A', text: colors.mood.pain };
+            default:
+                return { bg: colors.mood.okay + '1A', text: colors.mood.okay };
         }
     };
+    const energyStyle = getEnergyStyles();
 
-    const accentColor = getEnergyColor();
-
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }],
-        };
-    });
-
-    const handlePressIn = () => {
-        scale.value = withSpring(0.98, { damping: 10 });
+    const getFormattedDate = () => {
+        if (!dueDate) return null;
+        const date = new Date(dueDate);
+        const now = new Date();
+        const isOverdue = date < now && !isCompleted;
+        const isToday = date.toDateString() === now.toDateString();
+        const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        if (isOverdue && !isToday) {
+            return { text: `Overdue (${date.toLocaleDateString()})`, isWarning: true };
+        }
+        if (isToday) {
+            return { text: timeString, isWarning: isOverdue };
+        }
+        return { text: `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeString}`, isWarning: false };
     };
+    const dateInfo = getFormattedDate();
 
-    const handlePressOut = () => {
-        scale.value = withSpring(1, { damping: 12 });
+    const handlePress = () => {
+        if (Platform.OS !== 'web') {
+            if (!isCompleted) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+        }
+        if (onPress) onPress();
+        else onToggle();
     };
 
     // Swipe Action
-    const renderRightActions = (progress: any, dragX: any) => {
+    const renderRightActions = (progressAnimatedValue: any, dragX: any) => {
         return (
             <View style={styles.rightActionContainer}>
                  <View style={styles.rightAction}>
@@ -88,96 +99,73 @@ export const TaskItem = ({
         onToggle();
     };
 
+    const isFullyDone = isCompleted || progress === 100;
+
     return (
         <Animated.View 
             entering={FadeInDown.delay(index * 100).springify()} 
             layout={Layout.springify()}
-            style={{ marginBottom: spacing.l }}
+            style={{ marginBottom: spacing.s }}
         >
             <Swipeable
                 renderRightActions={!isCompleted ? renderRightActions : undefined}
                 onSwipeableOpen={!isCompleted ? onSwipeableOpen : undefined}
                 containerStyle={{ overflow: 'visible' }}
             >
-                <Animated.View style={animatedStyle}>
-                    <Pressable
-                        onPress={onPress || onToggle}
-                        onLongPress={onLongPress}
-                        onPressIn={handlePressIn}
-                        onPressOut={handlePressOut}
-                        android_ripple={{ color: colors.l3, borderless: false }}
-                        style={({ pressed }) => [
-                            styles.card,
-                            containerStyle,
-                            // iOS press feedback
-                            Platform.OS === 'ios' && pressed && { opacity: 0.9 }
-                        ]}
-                    >
-                        {/* 1. Time Label (Conditional) */}
-                        {(startTime || endTime) && (
-                            <View style={styles.timeRow}>
-                                <Text style={styles.timeText}>
-                                    {startTime}
-                                    {endTime ? ` - ${endTime}` : ''}
+                <TouchableOpacity
+                    onPress={handlePress}
+                    onLongPress={onLongPress}
+                    activeOpacity={0.7}
+                    style={[
+                        styles.card,
+                        isFullyDone ? styles.cardCompleted : styles.cardPending
+                    ]}
+                >
+                    {/* TOP ROW */}
+                        <View style={styles.topRow}>
+                            <Text style={[styles.timeText, dateInfo?.isWarning && { color: colors.warning }]}>
+                                {dateInfo?.text || ''}
+                            </Text>
+                            <View style={[styles.energyBadge, { backgroundColor: energyStyle.bg }]}>
+                                <Text style={[styles.energyText, { color: energyStyle.text }]}>
+                                    {energyLevel}
                                 </Text>
                             </View>
-                        )}
+                        </View>
 
-                        {/* Header: Title + Checkbox */}
-                        <View style={styles.headerRow}>
-                            <Text style={[styles.title, isCompleted && styles.completedTitle]} numberOfLines={2}>
+                        {/* MIDDLE ROW */}
+                        <View style={styles.middleRow}>
+                            <Text style={[styles.title, isFullyDone && styles.completedTitle]} numberOfLines={2}>
                                 {title}
                             </Text>
+                            {feedback ? (
+                                <Text style={styles.feedbackText} numberOfLines={1}>
+                                    {feedback}
+                                </Text>
+                            ) : null}
+                        </View>
+
+                        {/* BOTTOM ROW */}
+                        <View style={styles.bottomRow}>
+                            <View style={styles.progressContainer}>
+                                {progress > 0 && progress < 100 && !isFullyDone ? (
+                                    <View style={styles.progressBarBg}>
+                                        <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                                    </View>
+                                ) : <View />}
+                            </View>
                             
-                            <Pressable
-                                onPress={(e) => {
-                                    e.stopPropagation(); // Prevent card press
-                                    if (Platform.OS !== 'web') {
-                                        if (!isCompleted) {
-                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                        } else {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        }
-                                    }
-                                    onToggle();
-                                }} 
-                                style={({ pressed }) => [
-                                    styles.checkbox,
-                                    { opacity: pressed ? 0.7 : 1 }
-                                ]}
-                                hitSlop={16}
-                            >
-                                {isCompleted ? (
+                            <View style={styles.completionIndicator}>
+                                {isFullyDone ? (
                                     <Animated.View entering={ZoomIn} exiting={ZoomOut}>
-                                        <Ionicons name="checkmark-circle" size={26} color={colors.success} />
+                                        <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
                                     </Animated.View>
                                 ) : (
-                                    <Ionicons name="ellipse-outline" size={26} color={colors.textLight} />
+                                    <Ionicons name="ellipse-outline" size={24} color={colors.border} />
                                 )}
-                            </Pressable>
-                        </View>
-
-                        {/* Footer: Energy Badge + Progress */}
-                        <View style={styles.footerRow}>
-                            <View style={[styles.energyBadge, { backgroundColor: accentColor + '15' }]}>
-                                <Ionicons name="flash" size={10} color={accentColor} style={{ marginRight: 4 }} />
-                                <Text style={[styles.energyText, { color: accentColor }]}>
-                                    {energyLevel === 'MEDIUM' ? 'Mid Energy' : energyLevel === 'LOW' ? 'Recharge' : 'High Energy'}
-                                </Text>
                             </View>
-
-                            {/* Progress Bar */}
-                            {progress > 0 && !isCompleted && (
-                                    <View style={styles.miniProgress}>
-                                    <Text style={styles.progressText}>{progress}%</Text>
-                                    <View style={[styles.progressBarBG]}>
-                                        <View style={[styles.progressBarFill, { width: `${progress}%`, backgroundColor: accentColor }]} />
-                                    </View>
-                                </View>
-                            )}
                         </View>
-                    </Pressable>
-                </Animated.View>
+                </TouchableOpacity>
             </Swipeable>
         </Animated.View>
     );
@@ -185,96 +173,100 @@ export const TaskItem = ({
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 20, // Slightly cleaner radius
-        padding: spacing.m,
+        borderRadius: borderRadius.m,
+        padding: 12, // Drastically reduced from spacing.lg (24)
         ...Platform.select({
             ios: {
-                shadowColor: '#000',
+                shadowColor: '#000000',
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
+                shadowOpacity: 0.04, // Very subtle to prevent muddiness
                 shadowRadius: 8,
             },
             android: {
-                elevation: 3,
-                shadowColor: '#000', // Ensure shadow color helps elevation on some versions
+                elevation: 1, // Minimum elevation for clean edge
+                shadowColor: '#000000',
             },
             web: {
-                boxShadow: '0px 2px 8px rgba(0,0,0,0.08)',
+                boxShadow: `0px 2px 10px rgba(0,0,0,0.04)`,
             }
         }),
-        marginHorizontal: 2, // Prevent horizontal clipping of shadow
-        marginBottom: 2, // Prevent bottom clipping
+        // Ensure background renders properly behind rounded corners
+        backgroundColor: colors.surface, 
+        borderWidth: Platform.OS === 'android' ? 1 : 0, // Fallback crisp border on Android if elevation gets muddy
+        borderColor: colors.border + '40', // 25% opacity border
+        marginBottom: spacing.m, // Replace the hacky 2px margin
     },
-    timeRow: {
-        marginBottom: 8, // More breathing room
+    cardPending: {
+        backgroundColor: colors.surface,
+    },
+    cardCompleted: {
+        backgroundColor: colors.accentSoft,
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    topRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 2, // Shrink from spacing.sm
     },
     timeText: {
         ...typography.caption,
-        fontSize: 12,
-        fontWeight: '600',
-        color: colors.textSecondary,
+    },
+    energyBadge: {
+        borderRadius: borderRadius.round,
+        paddingHorizontal: 6, // Shrink from spacing.s
+        paddingVertical: 2, // Shrink from spacing.xs
+    },
+    energyText: {
+        fontSize: 10,
+        fontWeight: '700',
         letterSpacing: 0.5,
         textTransform: 'uppercase',
     },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.m, // Increased spacing
-        gap: spacing.m
+    middleRow: {
+        marginBottom: 4, // Shrink from spacing.m
     },
     title: {
-        ...typography.bodyBold,
-        fontSize: 17,
+        ...typography.h3,
+        fontSize: 15, // Slightly smaller font
+        lineHeight: 20,
+        marginBottom: 2,
         color: colors.text,
-        flex: 1,
-        lineHeight: 24,
     },
     completedTitle: {
+        opacity: 0.6,
+    },
+    feedbackText: {
+        ...typography.caption,
         color: colors.textSecondary,
-        textDecorationLine: 'none', // Removed strikethrough for cleaner look
-        opacity: 0.7
+        marginTop: spacing.xs,
+        fontStyle: 'italic',
     },
-    checkbox: {
-        marginTop: 0, // Aligned with text top
-    },
-    footerRow: {
+    bottomRow: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
-    },
-    energyBadge: {
-        flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 10,
     },
-    energyText: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 0.3,
+    progressContainer: {
+        flex: 1,
+        paddingRight: spacing.m,
+        justifyContent: 'center',
     },
-    miniProgress: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    progressText: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: colors.textLight,
-    },
-    progressBarBG: {
-        width: 40,
-        height: 4,
-        backgroundColor: colors.border,
-        borderRadius: 2,
+    progressBarBg: {
+        height: 4, // Shrink from 6
+        backgroundColor: colors.l2,
+        borderRadius: borderRadius.round,
         overflow: 'hidden',
     },
     progressBarFill: {
         height: '100%',
-        borderRadius: 2,
+        backgroundColor: colors.accent,
+        borderRadius: borderRadius.round,
+    },
+    completionIndicator: {
+        justifyContent: 'center',
+        alignItems: 'flex-end',
     },
     rightActionContainer: {
         justifyContent: 'center',
@@ -290,7 +282,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.success,
         justifyContent: 'center',
         alignItems: 'center',
-        // Simple shadow for action button
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,

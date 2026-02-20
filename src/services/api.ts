@@ -169,6 +169,119 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
         return res.json();
     },
 
+    // --- FOOD API ---
+    logFood: async (data: { date: string, name: string, quantity?: string, calories: number, time?: string, notes?: string }) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/food`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to log food');
+        invalidateCache('/food');
+        return res.json();
+    },
+
+    getDailyFoodLog: async (date: string) => {
+        const url = `${BACKEND_URL}/health-metrics/food/daily?date=${date}`;
+        return fetchWithCache(url);
+    },
+
+    // --- MEDICINE API ---
+    addMedicine: async (data: { name: string, dosage: string, frequency: string, times: string[] }) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to add medicine');
+        invalidateCache('/medicines');
+        return res.json();
+    },
+
+    updateMedicine: async (id: string, data: { name: string, dosage: string, frequency: string, times: string[] }) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/${id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to update medicine');
+        invalidateCache('/medicines');
+        return res.json();
+    },
+
+    deleteMedicine: async (id: string) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/${id}`, {
+            method: 'DELETE',
+            headers,
+        });
+        if (!res.ok) throw new Error('Failed to delete medicine');
+        invalidateCache('/medicines');
+        return res.json();
+    },
+
+    getMedicines: async () => {
+        const headers = await getHeaders(); // medicines might not change often but good to be fresh or cached long
+        return fetchWithCache(`${BACKEND_URL}/health-metrics/medicines`);
+    },
+
+    logMedicineIntake: async (data: { medicineId: string, date: string, time: string, status: 'TAKEN' | 'SKIPPED' }) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/intake`, {
+             method: 'POST',
+             headers,
+             body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to log intake');
+        invalidateCache('/medicines');
+        return res.json();
+    },
+
+    deleteMedicineIntake: async (data: { medicineId: string, date: string, time: string }) => {
+        const headers = await getHeaders();
+        // Use query parameters for DELETE requests
+        const params = new URLSearchParams({
+            medicineId: data.medicineId,
+            date: data.date,
+            time: data.time
+        }).toString();
+        
+        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/intake?${params}`, {
+             method: 'DELETE',
+             headers,
+        });
+        if (!res.ok) throw new Error('Failed to delete intake');
+        invalidateCache('/medicines');
+        return res.json();
+    },
+
+    getIntakeHistory: async (date: string) => {
+         const url = `${BACKEND_URL}/health-metrics/medicines/intake/history?date=${date}`;
+         return fetchWithCache(url);
+    },
+
+    // --- WEIGHT API ---
+    logWeight: async (data: { date: string, weight: number }) => {
+        const headers = await getHeaders();
+        const res = await fetch(`${BACKEND_URL}/health-metrics/weight`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to log weight');
+        invalidateCache('/weight');
+        invalidateCache('/reports');
+        return res.json();
+    },
+
+    getWeightHistory: async (startDate: string, endDate: string) => {
+        const url = `${BACKEND_URL}/health-metrics/weight/history?startDate=${startDate}&endDate=${endDate}`;
+        return fetchWithCache(url);
+    },
+
     createOrder: async (amount: number) => {
         const headers = await getHeaders();
         const res = await fetch(`${BACKEND_URL}/payments/create-order`, {

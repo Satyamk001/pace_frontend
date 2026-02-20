@@ -56,9 +56,15 @@ export default function App() {
   );
 }
 
+import { NotificationService } from './src/services/NotificationService';
+
 const MainAppContent = () => {
     const [isSplashVisible, setIsSplashVisible] = React.useState(true);
     
+    React.useEffect(() => {
+        NotificationService.init();
+    }, []);
+
     return (
         <React.Fragment>
             <GestureHandlerRootView style={{ flex: 1 }}>

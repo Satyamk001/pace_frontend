@@ -53,32 +53,50 @@ export const SkeletonBox = ({ width, height, borderRadius: br = 8, style }: Skel
     );
 };
 
-// --- Task Item Skeleton (for HomeScreen) ---
 export const TaskItemSkeleton = () => (
     <View style={taskStyles.container}>
-        <SkeletonBox width={26} height={26} borderRadius={13} />
-        <View style={taskStyles.info}>
-            <SkeletonBox width="75%" height={16} borderRadius={6} />
-            <SkeletonBox width="40%" height={4} borderRadius={2} style={{ marginTop: 8 }} />
+        {/* Top Row */}
+        <View style={taskStyles.topRow}>
+            <SkeletonBox width={60} height={14} borderRadius={4} />
+            <SkeletonBox width={80} height={20} borderRadius={10} />
         </View>
-        <SkeletonBox width={32} height={24} borderRadius={12} />
+
+        {/* Middle Row */}
+        <View style={taskStyles.middleRow}>
+            <SkeletonBox width="80%" height={24} borderRadius={6} />
+        </View>
+
+        {/* Bottom Row */}
+        <View style={taskStyles.bottomRow}>
+            <SkeletonBox width="50%" height={6} borderRadius={3} />
+            <SkeletonBox width={24} height={24} borderRadius={12} />
+        </View>
     </View>
 );
 
 const taskStyles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: colors.surface,
-        padding: spacing.m,
-        marginBottom: spacing.s,
+        padding: spacing.lg,
+        marginBottom: spacing.l,
         borderRadius: borderRadius.m,
-        ...shadows.soft,
-        gap: spacing.m,
+        ...shadows.level1,
+        marginHorizontal: 2,
     },
-    info: {
-        flex: 1,
+    topRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
     },
+    middleRow: {
+        marginBottom: spacing.m,
+    },
+    bottomRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    }
 });
 
 // --- Schedule Card Skeleton (for CalendarScreen, matches ScheduleCard layout) ---
@@ -131,10 +149,11 @@ const scheduleStyles = StyleSheet.create({
     },
     card: {
         flex: 1,
-        borderRadius: 24,
-        padding: spacing.l,
+        borderRadius: borderRadius.m,
+        padding: spacing.m,
         backgroundColor: colors.surface,
-        ...shadows.soft,
+        borderWidth: 1,
+        borderColor: colors.border + '80',
         minHeight: 120,
         justifyContent: 'space-between',
     },

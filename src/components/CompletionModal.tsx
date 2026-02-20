@@ -61,6 +61,11 @@ export const CompletionModal = ({
 
     const handleConfirmReschedule = () => {
         if (!todo || !onReschedule) return;
+        const now = new Date();
+        if (rescheduleHasTime && rescheduleDate < now) {
+            Alert.alert("Invalid Time", "Please select a time in the future.");
+            return;
+        }
         onReschedule(todo.id, rescheduleDate.toISOString());
         animateOut(onClose);
     };
@@ -304,8 +309,10 @@ export const CompletionModal = ({
                                 initialDate={rescheduleDate}
                                 minDate={(() => {
                                     const d = new Date();
-                                    d.setDate(d.getDate() + 1);
-                                    return d.toISOString().split('T')[0];
+                                    const year = d.getFullYear();
+                                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                                    const day = String(d.getDate()).padStart(2, '0');
+                                    return `${year}-${month}-${day}`;
                                 })()}
                                 onClose={() => setShowDatePicker(false)}
                                 onConfirm={(date) => {

@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
+import { EnergySelector } from '../components/EnergySelector';
+import { NotificationService } from '../services/NotificationService';
 
 export const AddTaskScreen = ({ navigation, route }: any) => {
   const { getToken } = useAuth();
@@ -53,7 +55,10 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
     if (!title.trim()) return;
     setLoading(true);
     try {
-      await api.createTodo(title, energy, dueDate.toISOString());
+      const newTodo = await api.createTodo(title, energy, dueDate.toISOString());
+      if (hasTime) {
+         await NotificationService.scheduleTodo(newTodo);
+      }
       navigation.goBack();
     } catch (error) {
       console.error(error);
@@ -96,29 +101,14 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                     multiline
                 />
 
+
+
+
+
                 {/* Section: Energy Level */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Energy Level</Text>
-                    <View style={styles.pillRow}>
-                        {['LOW', 'MEDIUM', 'HIGH'].map((lvl) => (
-                            <TouchableOpacity
-                                key={lvl}
-                                style={[
-                                    styles.pill,
-                                    energy === lvl && styles.pillSelected,
-                                    energy === lvl && { borderColor: colors.lavender } 
-                                ]}
-                                onPress={() => setEnergy(lvl as any)}
-                            >
-                                <Text style={[
-                                    styles.pillText,
-                                    energy === lvl && styles.pillTextSelected
-                                ]}>
-                                    {lvl}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    <EnergySelector value={energy} onChange={setEnergy} />
                 </View>
 
                 {/* Section: Schedule */}
