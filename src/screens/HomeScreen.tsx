@@ -227,14 +227,15 @@ export const HomeScreen = ({ navigation }: any) => {
         visible={completionModalVisible}
         onClose={() => setCompletionModalVisible(false)}
         todo={toggleTarget}
-        onConfirm={async (progress: number) => {
+        onConfirm={async (progress: number, feedback?: string) => {
             if (!toggleTarget) return;
             const isCompleted = progress === 100;
             setTodos(prev => prev.map(t => 
-                t.id === toggleTarget.id ? {...t, progress, is_completed: isCompleted} : t
+                t.id === toggleTarget.id ? {...t, progress, is_completed: isCompleted, feedback: feedback !== undefined ? feedback : t.feedback} : t
             ));
             try {
-                await api.updateTodoDetails(toggleTarget.id, { progress, isCompleted });
+                // Make sure feedback goes to the server
+                await api.updateTodoDetails(toggleTarget.id, { progress, isCompleted, feedback });
                 fetchData();
             } catch (e) {
                 console.error(e);

@@ -73,12 +73,12 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       return fetchWithCache(url);
     },
 
-    createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string) => {
+    createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string, feedback?: string) => {
       const headers = await getHeaders();
       const res = await fetch(`${BACKEND_URL}/todos`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ title, energyLevel, dueDate }),
+        body: JSON.stringify({ title, energyLevel, dueDate, feedback }),
       });
       if (!res.ok) throw new Error('Failed to create todo');
       invalidateCache('/todos');

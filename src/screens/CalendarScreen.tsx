@@ -278,22 +278,23 @@ export const CalendarScreen = ({ navigation }: any) => {
       setCompletionModalVisible(true);
   };
 
-  // Confirm handler — updates progress and completion status
-  const handleCompletionConfirm = async (progress: number) => {
+  // Confirm handler — updates progress, completion status, and feedback
+  const handleCompletionConfirm = async (progress: number, feedback?: string) => {
       if (!selectedTask) return;
       
       const isCompleted = progress === 100;
       
       // Optimistic Update
       setDayTasks((prev: any[]) => prev.map((t: any) => 
-          t.id === selectedTask.id ? { ...t, progress, is_completed: isCompleted } : t
+          t.id === selectedTask.id ? { ...t, progress, is_completed: isCompleted, feedback: feedback !== undefined ? feedback : t.feedback } : t
       ));
 
       try {
           // Send to API
           const updatedTodo = await api.updateTodoDetails(selectedTask.id, { 
               progress, 
-              isCompleted 
+              isCompleted,
+              feedback 
           });
           
           if (updatedTodo && !isCompleted && updatedTodo.due_date) {

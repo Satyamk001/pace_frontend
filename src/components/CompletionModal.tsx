@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, Alert, Platform, Animated, Dimensions } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, Alert, Platform, Animated, Dimensions, TextInput } from 'react-native';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { CustomDatePicker } from './ui/CustomDatePicker';
 interface CompletionModalProps {
     visible: boolean;
     onClose: () => void;
-    onConfirm: (progress: number) => void;
+    onConfirm: (progress: number, feedback?: string) => void;
     onDelete?: (id: string) => void;
     onReschedule?: (id: string, newDate: string) => void;
     todo?: any;
@@ -24,6 +24,7 @@ export const CompletionModal = ({
     todo, initialProgress = 0, title 
 }: CompletionModalProps) => {
     const [progress, setProgress] = useState(initialProgress);
+    const [feedback, setFeedback] = useState(todo?.feedback || '');
     const [showReschedulePanel, setShowReschedulePanel] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
@@ -34,6 +35,7 @@ export const CompletionModal = ({
     useEffect(() => {
         if (visible) {
             setProgress(initialProgress === 0 ? 100 : initialProgress);
+            setFeedback(todo?.feedback || '');
             setShowReschedulePanel(false);
             setShowDatePicker(false);
             setShowTimePicker(false);
@@ -44,7 +46,7 @@ export const CompletionModal = ({
             tomorrow.setHours(9, 0, 0, 0);
             setRescheduleDate(tomorrow);
         }
-    }, [visible, initialProgress]);
+    }, [visible, initialProgress, todo]);
 
 
 
@@ -130,7 +132,7 @@ export const CompletionModal = ({
     };
 
     const handleConfirm = () => {
-        animateOut(() => onConfirm(progress));
+        animateOut(() => onConfirm(progress, feedback.trim() || undefined));
     };
 
     const confirmDelete = () => {
@@ -211,6 +213,18 @@ export const CompletionModal = ({
                             minimumTrackTintColor={colors.primary}
                             maximumTrackTintColor={colors.border}
                             thumbTintColor={colors.primary}
+                        />
+                    </View>
+
+                    <View style={styles.feedbackContainer}>
+                        <Text style={styles.feedbackLabel}>Notes / Feedback</Text>
+                        <TextInput
+                            style={styles.feedbackInput}
+                            placeholder="Add details, context, or learnings..."
+                            placeholderTextColor={colors.textLight}
+                            value={feedback}
+                            onChangeText={setFeedback}
+                            multiline
                         />
                     </View>
 
@@ -391,7 +405,28 @@ const styles = StyleSheet.create({
     sliderContainer: {
         alignItems: 'center',
         gap: spacing.m,
-        marginBottom: spacing.l
+        marginBottom: spacing.m
+    },
+    feedbackContainer: {
+        marginBottom: spacing.l,
+    },
+    feedbackLabel: {
+        ...typography.caption,
+        color: colors.textSecondary,
+        marginBottom: spacing.xs,
+        fontWeight: '600'
+    },
+    feedbackInput: {
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: borderRadius.m,
+        padding: spacing.m,
+        paddingTop: spacing.m, // Fix multiline top padding
+        minHeight: 80,
+        textAlignVertical: 'top',
+        color: colors.text,
+        fontSize: 15,
     },
     progressText: {
         fontSize: 32,

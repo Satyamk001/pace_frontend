@@ -24,6 +24,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
 
     const [title, setTitle] = useState(todo.title);
     const [description, setDescription] = useState(todo.description || '');
+    const [feedback, setFeedback] = useState(todo.feedback || '');
     const [energyLevel, setEnergyLevel] = useState<'LOW' | 'MEDIUM' | 'HIGH'>(todo.energy_level || 'MEDIUM');
     const [progress, setProgress] = useState(todo.progress || 0);
     const [isCompleted, setIsCompleted] = useState(todo.is_completed || false);
@@ -78,6 +79,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 description,
                 energyLevel,
                 progress,
+                feedback,
                 isCompleted: completed,
                 dueDate: dueDate.toISOString(),
             });
@@ -197,6 +199,19 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                             value={description}
                             onChangeText={setDescription}
                             placeholder="Add details..."
+                            placeholderTextColor={colors.textLight}
+                            multiline
+                        />
+                    </View>
+
+                    {/* Notes / Feedback */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Notes</Text>
+                        <TextInput 
+                            style={[styles.input, styles.textArea]}
+                            value={feedback}
+                            onChangeText={setFeedback}
+                            placeholder="Any context or feedback?"
                             placeholderTextColor={colors.textLight}
                             multiline
                         />

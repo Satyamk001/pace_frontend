@@ -19,6 +19,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
   const api = createApiService(getToken);
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [energy, setEnergy] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
   const [loading, setLoading] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -55,7 +56,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
     if (!title.trim()) return;
     setLoading(true);
     try {
-      const newTodo = await api.createTodo(title, energy, dueDate.toISOString());
+      const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined);
       if (hasTime) {
          await NotificationService.scheduleTodo(newTodo);
       }
@@ -139,6 +140,19 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                                 )}
                             </TouchableOpacity>
                     </View>
+                </View>
+
+                {/* Section: Notes/Feedback */}
+                <View style={[styles.section, { marginBottom: 30 }]}>
+                    <Text style={styles.sectionTitle}>Notes</Text>
+                    <TextInput
+                        style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                        placeholder="Any additional details or context?"
+                        value={feedback}
+                        onChangeText={setFeedback}
+                        placeholderTextColor={colors.textLight}
+                        multiline
+                    />
                 </View>
 
              </ScrollView>
