@@ -89,7 +89,14 @@ export const NotificationService = {
       const dueDate = new Date(todo.due_date);
       if (dueDate.getTime() <= Date.now()) return; // Already passed
 
-      const trigger: any = Platform.OS === 'android' ? { date: dueDate, channelId: 'default' } : { date: dueDate };
+      // Valid Expo date trigger
+      const trigger: any = { 
+          type: 'date', 
+          date: dueDate 
+      };
+      if (Platform.OS === 'android') {
+          trigger.channelId = 'default';
+      }
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -117,18 +124,15 @@ export const NotificationService = {
       try {
         const [hours, minutes] = timeStr.split(':').map(Number);
         
-        // Schedule daily
         if (isDaily) {
-          const trigger: any = Platform.OS === 'android' ? {
+          const baseTrigger: any = {
+              type: 'daily',
               hour: hours,
               minute: minutes,
-              repeats: true,
-              channelId: 'default',
-          } : {
-              hour: hours,
-              minute: minutes,
-              repeats: true,
           };
+          if (Platform.OS === 'android') {
+              baseTrigger.channelId = 'default';
+          }
 
           await Notifications.scheduleNotificationAsync({
             content: {
@@ -136,21 +140,26 @@ export const NotificationService = {
               body: `Time to take ${medicine.name}`,
               data: { medicineId: medicine.id },
             },
-            trigger,
+            trigger: baseTrigger,
           });
         } else {
           // Just today for now if not daily
           const triggerDate = new Date();
           triggerDate.setHours(hours, minutes, 0, 0);
           if (triggerDate.getTime() > Date.now()) {
-            const trigger: any = Platform.OS === 'android' ? { date: triggerDate, channelId: 'default' } : { date: triggerDate };
+            const tempTrigger: any = { 
+                type: 'date', 
+                date: triggerDate 
+            };
+            if (Platform.OS === 'android') tempTrigger.channelId = 'default';
+            
             await Notifications.scheduleNotificationAsync({
               content: {
                 title: "💊 Medicine Reminder",
                 body: `Time to take ${medicine.name}`,
                 data: { medicineId: medicine.id },
               },
-              trigger,
+              trigger: tempTrigger,
             });
           }
         }

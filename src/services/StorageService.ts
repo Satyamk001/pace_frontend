@@ -4,7 +4,12 @@ export const STORAGE_KEYS = {
     TODOS: 'offline_todos',
     CALENDAR: 'offline_calendar', // Stores calendar data for daily logs
     SUBSCRIPTION: 'offline_subscription',
+    MEDICINES: 'offline_medicines',
+    DAILY_LOGS: 'offline_daily_logs', // Specifically for the detailed log objects
+    HEALTH_METRICS: 'offline_health_metrics', // Specifically for the detailed metrics
 };
+
+const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const StorageService = {
     async setItem(key: string, value: any) {
@@ -34,7 +39,98 @@ export const StorageService = {
     },
     
     async syncMedicines(medicines: any[]) {
-        await this.setItem('offline_medicines', medicines);
+        await this.setItem(STORAGE_KEYS.MEDICINES, medicines);
+    },
+
+    // --- TEMPORARY ID RECONCILIATION ---
+    async replaceTempId(tempId: string, realId: string) {
+        // 1. Replace in Todos
+        const todos = await this.getItem(STORAGE_KEYS.TODOS) || [];
+        let todosChanged = false;
+        const updatedTodos = todos.map((t: any) => {
+            if (t.id === tempId) {
+                todosChanged = true;
+                return { ...t, id: realId };
+            }
+            return t;
+        });
+        if (todosChanged) await this.setItem(STORAGE_KEYS.TODOS, updatedTodos);
+
+        // Add additional replacements here if other entities use temp IDs (e.g., Medicines)
+    },
+
+    // --- LOCAL CRUD FOR TODOS ---
+    async addTodo(todoData: any): Promise<any> {
+        const id = generateTempId();
+        const newTodo = {
+            id,
+            ...todoData,
+            created_at: new Date().toISOString(),
+            is_completed: false,
+            progress: 0,
+            _isTemp: true // Optional flag for UI
+        };
+        const todos = await this.getItem(STORAGE_KEYS.TODOS) || [];
+        await this.setItem(STORAGE_KEYS.TODOS, [newTodo, ...todos]);
+        return newTodo;
+    },
+
+    async updateTodo(id: string, updates: any): Promise<any> {
+        const todos = await this.getItem(STORAGE_KEYS.TODOS) || [];
+        let updatedTodo = null;
+        const updatedTodos = todos.map((t: any) => {
+            if (t.id === id) {
+                updatedTodo = { 
+                    ...t, 
+                    ...updates,
+                    completed_at: updates.isCompleted ? new Date().toISOString() : (updates.isCompleted === false ? null : t.completed_at),
+                    is_completed: updates.isCompleted !== undefined ? updates.isCompleted : t.is_completed
+                };
+                return updatedTodo;
+            }
+            return t;
+        });
+        await this.setItem(STORAGE_KEYS.TODOS, updatedTodos);
+        return updatedTodo;
+    },
+
+    async deleteTodo(id: string): Promise<void> {
+        const todos = await this.getItem(STORAGE_KEYS.TODOS) || [];
+        const filtered = todos.filter((t: any) => t.id !== id);
+        await this.setItem(STORAGE_KEYS.TODOS, filtered);
+    },
+
+    // --- LOCAL CRUD FOR DAILY LOGS / METRICS ---
+    async updateDailyLog(logData: any) {
+        const logs = await this.getItem(STORAGE_KEYS.DAILY_LOGS) || {};
+        const dateKey = logData.date; // assuming YYYY-MM-DD
+        logs[dateKey] = { ...logs[dateKey], ...logData };
+        await this.setItem(STORAGE_KEYS.DAILY_LOGS, logs);
+
+        // Also update the lean calendar cache used for rolling stats
+        const calendar = await this.getItem(STORAGE_KEYS.CALENDAR) || {};
+        calendar[dateKey] = { ...calendar[dateKey], ...logData };
+        await this.setItem(STORAGE_KEYS.CALENDAR, calendar);
+        
+        return logs[dateKey];
+    },
+
+    async getDailyLog(dateStr: string) {
+        const logs = await this.getItem(STORAGE_KEYS.DAILY_LOGS) || {};
+        return logs[dateStr] || null;
+    },
+
+    async updateHealthMetrics(metricData: any) {
+        const metrics = await this.getItem(STORAGE_KEYS.HEALTH_METRICS) || {};
+        const dateKey = metricData.date;
+        metrics[dateKey] = { ...metrics[dateKey], ...metricData };
+        await this.setItem(STORAGE_KEYS.HEALTH_METRICS, metrics);
+        return metrics[dateKey];
+    },
+
+    async getHealthMetrics(dateStr: string) {
+        const metrics = await this.getItem(STORAGE_KEYS.HEALTH_METRICS) || {};
+        return metrics[dateStr] || null;
     },
     
     // Feature 1: 7-Day Rolling Stats locally

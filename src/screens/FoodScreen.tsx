@@ -11,7 +11,7 @@ import { useOffline } from '../context/OfflineContext';
 export const FoodScreen = () => {
     const navigation = useNavigation();
     const { getToken } = useAuth();
-    const { isOffline, queueRequest } = useOffline();
+    const { isOffline } = useOffline();
     const api = createApiService(getToken);
 
     const [logs, setLogs] = useState<any[]>([]);
@@ -66,12 +66,9 @@ export const FoodScreen = () => {
         setQuantity('');
 
         try {
-            if (isOffline) {
-                await queueRequest(`${process.env.EXPO_PUBLIC_BACKEND_URL}/health-metrics/food`, 'POST', newLog);
-                Alert.alert('Offline', 'Food logged locally. Will sync when online.');
-            } else {
-                await api.logFood(newLog);
-                fetchLogs(); // Refresh to get real ID
+            await api.logFood(newLog);
+            if (!isOffline) {
+                fetchLogs(); // Refresh to get real ID if online
             }
         } catch (error) {
             console.error('Failed to log food', error);
@@ -255,8 +252,8 @@ const styles = StyleSheet.create({
         padding: spacing.sm,
     },
     cancelButtonText: {
-        color: colors.textLight,
         ...fonts.button,
+        color: colors.textLight,
     },
     saveButton: {
         backgroundColor: colors.primary,
@@ -265,8 +262,8 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.round,
     },
     saveButtonText: {
-        color: '#FFF',
         ...fonts.button,
+        color: '#FFF',
     },
     list: {
         gap: spacing.md,

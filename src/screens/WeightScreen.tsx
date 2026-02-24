@@ -12,7 +12,7 @@ import { LineChart } from 'react-native-chart-kit';
 export const WeightScreen = () => {
     const navigation = useNavigation();
     const { getToken } = useAuth();
-    const { isOffline, queueRequest } = useOffline();
+    const { isOffline } = useOffline();
     const api = createApiService(getToken);
 
     const [weight, setWeight] = useState('');
@@ -51,13 +51,8 @@ export const WeightScreen = () => {
         };
 
         try {
-            if (isOffline) {
-                await queueRequest(`${process.env.EXPO_PUBLIC_BACKEND_URL}/health-metrics/weight`, 'POST', payload);
-                 Alert.alert('Offline', 'Weight logged locally.');
-            } else {
-                await api.logWeight(payload);
-                fetchHistory();
-            }
+            await api.logWeight(payload);
+            if (!isOffline) fetchHistory();
             setWeight('');
         } catch (error) {
             Alert.alert('Error', 'Failed to log weight');

@@ -14,7 +14,7 @@ import { NotificationService } from '../services/NotificationService';
 export const MedicineScreen = () => {
     const navigation = useNavigation();
     const { getToken } = useAuth();
-    const { isOffline, queueRequest } = useOffline();
+    const { isOffline } = useOffline();
     const api = createApiService(getToken);
 
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export const MedicineScreen = () => {
                 if (isTaken) {
                      showDialog('Offline', 'Untaking unavailable offline yet.');
                 } else {
-                    await queueRequest(`${process.env.EXPO_PUBLIC_BACKEND_URL}/health-metrics/medicines/intake`, 'POST', payload);
+                    await api.logMedicineIntake(payload as any);
                     showDialog('Offline', 'Marked as taken locally.');
                 }
             } else {
@@ -153,7 +153,7 @@ export const MedicineScreen = () => {
                 if (editingId) {
                      showDialog('Offline', 'Editing not supported offline yet.');
                 } else {
-                    await queueRequest(`${process.env.EXPO_PUBLIC_BACKEND_URL}/health-metrics/medicines`, 'POST', newMed);
+                    await api.addMedicine(newMed);
                     showDialog('Offline', 'Medicine saved locally.');
                     resetForm();
                 }

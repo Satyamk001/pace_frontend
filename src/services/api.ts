@@ -1,4 +1,6 @@
 import { useAuth } from '@clerk/clerk-expo';
+import { StorageService } from './StorageService';
+import { OfflineSyncService } from './OfflineSyncService';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
 
@@ -67,78 +69,98 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
 
   return {
     getTodos: async (date?: string, status?: 'active' | 'completed') => {
-      let url = `${BACKEND_URL}/todos?`;
-      if (date) url += `date=${date}&`;
-      if (status) url += `status=${status}`;
-      return fetchWithCache(url);
+      // Offline-first read: Return straight from StorageService
+      const allTodos = await StorageService.getItem('offline_todos') || [];
+      
+      let filtered = [...allTodos];
+      if (date) {
+        filtered = filtered.filter((t: any) => {
+            if (t.due_date && t.due_date.startsWith(date)) return true;
+            if (t.completed_at && t.completed_at.startsWith(date)) return true;
+            return false;
+        });
+      }
+      if (status === 'active') {
+          filtered = filtered.filter((t: any) => !t.is_completed);
+      } else if (status === 'completed') {
+          filtered = filtered.filter((t: any) => t.is_completed);
+      }
+      
+      // Sort logic (matching backend)
+      filtered.sort((a, b) => {
+          if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+          const energyOrder = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+          const eA = energyOrder[a.energy_level as keyof typeof energyOrder] || 2;
+          const eB = energyOrder[b.energy_level as keyof typeof energyOrder] || 2;
+          if (eA !== eB) return eB - eA;
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      });
+
+      return filtered;
     },
 
     createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string, feedback?: string) => {
-      const headers = await getHeaders();
-      const res = await fetch(`${BACKEND_URL}/todos`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ title, energyLevel, dueDate, feedback }),
-      });
-      if (!res.ok) throw new Error('Failed to create todo');
-      invalidateCache('/todos');
-      invalidateCache('/reports'); 
-      return res.json();
+      // 1. Mutate locally and generate temp ID
+      const newTodo = await StorageService.addTodo({ title, energy_level: energyLevel, due_date: dueDate, feedback });
+      
+      // 2. Queue background sync
+      await OfflineSyncService.queueRequest(
+          `${BACKEND_URL}/todos`, 
+          'POST', 
+          { title, energyLevel, dueDate, feedback },
+          newTodo.id // Pass temp ID for Server Reconciliation later
+      );
+      
+      // 3. Return instantly
+      return newTodo;
     },
 
     toggleTodo: async (id: string, isCompleted: boolean) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/todos/${id}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({ isCompleted }),
-        });
-        if (!res.ok) throw new Error('Failed to update todo');
-        invalidateCache('/todos');
-        invalidateCache('/reports');
-        return res.json();
+        // 1. Mutate Locally
+        const updatedTodo = await StorageService.updateTodo(id, { isCompleted });
+        
+        // 2. Queue Sync
+        await OfflineSyncService.queueRequest(
+            `${BACKEND_URL}/todos/${id}`, 
+            'PUT', 
+            { isCompleted }
+        );
+        
+        return updatedTodo;
     },
 
     updateTodoDetails: async (id: string, updates: any) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/todos/${id}`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(updates),
-        });
-        if (!res.ok) throw new Error('Failed to update details');
-        invalidateCache('/todos');
-        return res.json();
+        // 1. Mutate Locally
+        const updatedTodo = await StorageService.updateTodo(id, updates);
+        
+        // 2. Queue Sync
+        await OfflineSyncService.queueRequest(
+            `${BACKEND_URL}/todos/${id}`, 
+            'PUT', 
+            updates
+        );
+        
+        return updatedTodo;
     },
 
     deleteTodo: async (id: string) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/todos/${id}`, {
-            method: 'DELETE',
-            headers,
-        });
-        if (!res.ok) throw new Error('Failed to delete todo');
-        invalidateCache('/todos');
-        invalidateCache('/reports');
-        return res.json();
+        // 1. Mutate locally
+        await StorageService.deleteTodo(id);
+        
+        // 2. Queue Sync
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/todos/${id}`, 'DELETE');
+        
+        return { message: 'Todo deleted locally (queued)' };
     },
 
     getDailyLog: async (date: string) => {
-      const url = `${BACKEND_URL}/daily-logs?date=${date}`;
-      return fetchWithCache(url);
+      return await StorageService.getDailyLog(date);
     },
 
     logDay: async (date: string, dayType?: 'NORMAL' | 'FLARE_UP' | 'LOW_ENERGY', mood?: string) => {
-      const headers = await getHeaders();
-      const res = await fetch(`${BACKEND_URL}/daily-logs`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ date, dayType, mood }),
-      });
-      if (!res.ok) throw new Error('Failed to log day');
-      invalidateCache('/daily-logs');
-      invalidateCache('/reports'); 
-      return res.json();
+      const log = await StorageService.updateDailyLog({ date, day_type: dayType, mood });
+      await OfflineSyncService.queueRequest(`${BACKEND_URL}/daily-logs`, 'POST', { date, dayType, mood });
+      return log;
     },
 
     getStats: async (range: string = '7') => {
@@ -152,21 +174,19 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     },
 
     getHealthMetrics: async (date: string) => {
-        const url = `${BACKEND_URL}/health-metrics?date=${date}`;
-        return fetchWithCache(url);
+        return await StorageService.getHealthMetrics(date);
     },
 
     logHealthMetrics: async (data: { date: string, painLevel: number, fatigueLevel: number, mood: string, notes?: string }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data),
+        const metrics = await StorageService.updateHealthMetrics({
+            date: data.date,
+            pain_level: data.painLevel,
+            fatigue_level: data.fatigueLevel,
+            mood: data.mood,
+            notes: data.notes
         });
-        if (!res.ok) throw new Error('Failed to log metrics');
-        invalidateCache('/health-metrics');
-        invalidateCache('/reports'); 
-        return res.json();
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics`, 'POST', data);
+        return metrics;
     },
 
     // --- FOOD API ---
@@ -189,43 +209,40 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
 
     // --- MEDICINE API ---
     addMedicine: async (data: { name: string, dosage: string, frequency: string, times: string[] }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to add medicine');
-        invalidateCache('/medicines');
-        return res.json();
+        // Since getMedicines logic relies heavily on the server to sort schedules,
+        // we'll optimistic-update the local cache by finding the global Medicines array.
+        const allMeds = await StorageService.getItem('offline_medicines') || [];
+        const newMed = {
+            id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            ...data,
+            _isTemp: true
+        };
+        await StorageService.syncMedicines([...allMeds, newMed]);
+        
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/medicines`, 'POST', data, newMed.id);
+        return newMed;
     },
 
     updateMedicine: async (id: string, data: { name: string, dosage: string, frequency: string, times: string[] }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/${id}`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to update medicine');
-        invalidateCache('/medicines');
-        return res.json();
+        const allMeds = await StorageService.getItem('offline_medicines') || [];
+        const updatedMeds = allMeds.map((m: any) => m.id === id ? { ...m, ...data } : m);
+        await StorageService.syncMedicines(updatedMeds);
+        
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/medicines/${id}`, 'PUT', data);
+        return { id, ...data };
     },
 
     deleteMedicine: async (id: string) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/${id}`, {
-            method: 'DELETE',
-            headers,
-        });
-        if (!res.ok) throw new Error('Failed to delete medicine');
-        invalidateCache('/medicines');
-        return res.json();
+        const allMeds = await StorageService.getItem('offline_medicines') || [];
+        const filtered = allMeds.filter((m: any) => m.id !== id);
+        await StorageService.syncMedicines(filtered);
+        
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/medicines/${id}`, 'DELETE');
+        return { message: 'Medicine deleted locally' };
     },
 
     getMedicines: async () => {
-        const headers = await getHeaders(); // medicines might not change often but good to be fresh or cached long
-        return fetchWithCache(`${BACKEND_URL}/health-metrics/medicines`);
+        return await StorageService.getItem('offline_medicines') || [];
     },
 
     logMedicineIntake: async (data: { medicineId: string, date: string, time: string, status: 'TAKEN' | 'SKIPPED' }) => {
