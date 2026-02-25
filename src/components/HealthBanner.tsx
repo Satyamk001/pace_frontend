@@ -90,7 +90,7 @@ export const HealthBanner = ({ status, mood, onPressAction }: HealthBannerProps)
 const styles = StyleSheet.create({
     glassContainer: {
         marginHorizontal: spacing.l,
-        marginBottom: spacing.l,
+        marginBottom: spacing.m,
         borderRadius: borderRadius.l,
         overflow: 'hidden',
         position: 'relative',

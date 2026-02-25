@@ -7,7 +7,7 @@ import { colors, layout } from '../../theme';
 interface ScreenLayoutProps {
   children: React.ReactNode;
   style?: ViewStyle;
-  useGradient?: boolean;
+  useGradient?: boolean | 'hero';
   edges?: ('top' | 'right' | 'bottom' | 'left')[];
 }
 
@@ -27,14 +27,19 @@ export const ScreenLayout = ({
   };
 
   if (useGradient) {
+    // If the useGradient is strictly 'hero', we fade from Surface to Background (vertical)
+    // If true/default, we use the diagonal Global Depth (Parchment Layer)
+    const isHero = useGradient === 'hero';
+    const gradientColors = isHero ? colors.gradients.surface : colors.gradients.background;
+    
     return (
       <View style={[styles.container, containerStyle, style]}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <LinearGradient
-          colors={colors.gradients.background as any}
+          colors={gradientColors as unknown as readonly [string, string, ...string[]]}
           style={StyleSheet.absoluteFill}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={isHero ? { x: 0.5, y: 0 } : { x: 0, y: 0 }}
+          end={isHero ? { x: 0.5, y: 1 } : { x: 1, y: 1 }}
         />
         {children}
       </View>

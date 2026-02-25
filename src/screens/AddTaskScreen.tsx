@@ -4,8 +4,7 @@ import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CustomDatePicker } from '../components/ui/CustomDatePicker';
-import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
+import { DateTimeModal } from '../components/DateTimeModal';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,9 +26,9 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
   // Date/Time State
   const initialDate = route.params?.initialDate ? new Date(route.params.initialDate) : new Date();
   const [dueDate, setDueDate] = useState(initialDate);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasTime, setHasTime] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [repeatType, setRepeatType] = useState<string>('NONE');
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate());
@@ -37,12 +36,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
   })();
 
   const handleTimePress = () => {
-      if (!hasTime) {
-          setHasTime(true);
-          setShowTimePicker(true);
-      } else {
-          setShowTimePicker(true);
-      }
+      setShowDateTimePicker(true);
   };
 
   const handleClearTime = () => {
@@ -56,9 +50,9 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
     if (!title.trim()) return;
     setLoading(true);
     try {
-      const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined);
+      const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined, repeatType);
       if (hasTime) {
-         await NotificationService.scheduleTodo(newTodo);
+         await NotificationService.scheduleTodo({...newTodo, title, due_date: dueDate.toISOString(), is_completed: false});
       }
       navigation.goBack();
     } catch (error) {
@@ -87,6 +81,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
        <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
           style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 60) : 0}
        >
          <View style={styles.contentContainer}>
              <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -116,7 +111,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Schedule</Text>
                     <View style={styles.pillRow}>
-                            <TouchableOpacity style={styles.datePill} onPress={() => setShowDatePicker(true)}>
+                            <TouchableOpacity style={styles.datePill} onPress={() => setShowDateTimePicker(true)}>
                                 <Ionicons name="calendar-clear-outline" size={18} color={colors.text} />
                                 <Text style={styles.datePillText}>
                                 {dueDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -124,7 +119,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                             </TouchableOpacity>
 
                             <TouchableOpacity 
-                            style={[styles.datePill, hasTime && { backgroundColor: colors.lavender, borderColor: colors.accent }]}
+                            style={[styles.datePill, hasTime && { backgroundColor: colors.accentSoft, borderColor: colors.primary }]}
                             onPress={handleTimePress}
                             >
                                 <Ionicons name="time-outline" size={18} color={hasTime ? colors.primary : colors.text} />
@@ -174,38 +169,18 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
          </View>
        </KeyboardAvoidingView>
 
-       {/* Pickers */}
-       <CustomDatePicker
-            visible={showDatePicker}
-        initialDate={dueDate}
-        minDate={minDate}
-            onClose={() => setShowDatePicker(false)}
-            onConfirm={(date) => {
-                const d = new Date(date);
-                if (hasTime) {
-                    d.setHours(dueDate.getHours(), dueDate.getMinutes());
-                }
-                setDueDate(d);
-                setShowDatePicker(false);
+        {/* Pickers */}
+       <DateTimeModal 
+            visible={showDateTimePicker}
+            onClose={() => setShowDateTimePicker(false)}
+            initialDate={dueDate}
+            initialRepeatType={repeatType}
+            onSave={(date, rType) => {
+                setDueDate(date);
+                setRepeatType(rType);
+                setHasTime(true);
             }}
-            title="Set Due Date"
         />
-
-        {showTimePicker && (
-            <MyDateTimePicker
-                value={dueDate}
-                mode="time"
-                is24Hour={false}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                    setShowTimePicker(Platform.OS === 'ios');
-                    if (selectedDate) {
-                        setDueDate(selectedDate);
-                        setHasTime(true);
-                    }
-                }}
-            />
-        )}
     </ScreenLayout>
   );
 };
@@ -272,8 +247,8 @@ const styles = StyleSheet.create({
       backgroundColor: 'transparent',
   },
   pillSelected: {
-      backgroundColor: colors.lavender, 
-      borderColor: colors.accent,
+        backgroundColor: colors.surfaceSoft,
+        borderColor: colors.border,
   },
   pillText: {
       fontSize: 15,

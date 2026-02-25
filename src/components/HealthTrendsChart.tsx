@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import Svg, { Rect, G, Text as SvgText, Line } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -47,8 +48,8 @@ export const HealthTrendsChart = ({ data, height = 240 }: HealthTrendsChartProps
                 contentContainerStyle={{ paddingHorizontal: spacing.s }}
             >
                 <Svg width={chartWidth} height={height}>
-                    {/* Minimal Grid - Only 0, 5, 10 */}
-                    {[0, 5, 10].map((val) => (
+                    {/* Grid Lines */}
+                    {[0, 2, 4, 6, 8, 10].map((val) => (
                         <G key={`grid-${val}`}>
                             <Line 
                                 x1="0" 
@@ -139,12 +140,12 @@ export const HealthTrendsChart = ({ data, height = 240 }: HealthTrendsChartProps
             
             {/* Legend */}
             <View style={styles.legendContainer}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.dot, { backgroundColor: COLOR_PAIN }]} />
+                <View style={[styles.legendItem, { borderColor: COLOR_PAIN }]}>
+                    <Ionicons name="alert-circle" size={16} color={colors.accent} />
                     <Text style={styles.legendText}>Pain</Text>
                 </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.dot, { backgroundColor: COLOR_FATIGUE }]} />
+                <View style={[styles.legendItem, { borderColor: COLOR_FATIGUE }]}>
+                    <Ionicons name="battery-half" size={16} color={colors.accent} />
                     <Text style={styles.legendText}>Fatigue</Text>
                 </View>
             </View>
@@ -159,9 +160,10 @@ const styles = StyleSheet.create({
     },
     legendContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         justifyContent: 'center',
         marginTop: spacing.m,
-        gap: spacing.l,
+        gap: spacing.m,
     },
     legendItem: {
         flexDirection: 'row',

@@ -5,9 +5,10 @@ import { colors, shadows } from '../theme';
 interface MascotAvatarProps {
     size?: 'small' | 'medium' | 'large';
     imageUrl?: string | null;
+    shape?: 'circle' | 'square';
 }
 
-export const MascotAvatar = ({ size = 'medium', imageUrl }: MascotAvatarProps) => {
+export const MascotAvatar = ({ size = 'medium', imageUrl, shape = 'circle' }: MascotAvatarProps) => {
     const getSize = () => {
         switch (size) {
             case 'small': return 40;
@@ -17,16 +18,18 @@ export const MascotAvatar = ({ size = 'medium', imageUrl }: MascotAvatarProps) =
     };
 
     const dimension = getSize();
+    const radius = shape === 'square' ? 16 : dimension / 2;
 
     return (
         <View style={[
             styles.container, 
-            { width: dimension, height: dimension, borderRadius: dimension / 2 }
+            { width: dimension, height: dimension, borderRadius: radius },
+            shape === 'square' && styles.squareGlow
         ]}>
             {imageUrl ? (
                 <Image 
                     source={{ uri: imageUrl }} 
-                    style={{ width: dimension, height: dimension, borderRadius: dimension / 2 }} 
+                    style={{ width: dimension, height: dimension, borderRadius: radius }} 
                 />
             ) : (
                 <Text style={{ fontSize: dimension * 0.5 }}>👤</Text>
@@ -43,5 +46,14 @@ const styles = StyleSheet.create({
         borderWidth: 4,
         borderColor: '#FFF',
         ...shadows.medium,
+    },
+    squareGlow: {
+        borderWidth: 2,
+        borderColor: colors.surfaceSoft,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 6,
     }
 });

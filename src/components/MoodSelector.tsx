@@ -1,5 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ScrollView, Text, StyleSheet } from 'react-native';
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withRepeat, 
+    withTiming,
+    Easing
+} from 'react-native-reanimated';
 import { ScalePressable } from './ui/ScalePressable';
 import { colors, spacing, shadows, borderRadius } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +25,27 @@ const MOODS = [
 ];
 
 export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) => {
+    // Shared value for the breathing animation
+    const breathScale = useSharedValue(1.1);
+
+    useEffect(() => {
+        // Start the breathing loop whenever the component mounts/updates
+        breathScale.value = withRepeat(
+            withTiming(1.15, { 
+                duration: 1500, 
+                easing: Easing.inOut(Easing.ease) 
+            }), 
+            -1, // Infinite repeat
+            true // Reverse (pulse in and out)
+        );
+    }, []);
+
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ scale: breathScale.value }]
+        };
+    });
+
     return (
         <ScrollView 
             horizontal 
@@ -26,40 +54,32 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
         >
             {MOODS.map((mood) => {
                 const isSelected = selectedMood === mood.id;
-                const dynamicStyle = isSelected ? {
-                    borderColor: mood.color,
-                    backgroundColor: colors.surface, // Keep surface clean
-                    borderWidth: 2, // Thicker border
-                    shadowColor: mood.color,
-                    shadowOpacity: 0.25, 
-                    shadowRadius: 8,
-                    elevation: 5,
-                    transform: [{ scale: 1.05 }]
-                } : {};
+                
+                // Static vs Animated Wrapper
+                const Wrapper = isSelected ? Animated.View : View;
+                const wrapperStyle = isSelected ? [styles.moodBtnActive, { borderColor: mood.color, shadowColor: mood.color }, animatedStyle] : styles.moodBtn;
 
                 return (
                     <ScalePressable 
                         key={mood.id} 
-                        style={[
-                            styles.moodBtn, 
-                            dynamicStyle 
-                        ]}
                         onPress={() => onSelectMood(mood.id)}
                         scaleTo={0.95}
                     >
-                        <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                             {/* Icon Color */}
-                            <Ionicons 
-                                name={mood.icon as any} 
-                                size={28} 
-                                color={isSelected ? mood.color : colors.textLight} 
-                            />
-                            {isSelected && (
-                                <Text style={[styles.label, { color: colors.text }]}>
-                                    {mood.label}
-                                </Text>
-                            )}
-                        </View>
+                        <Wrapper style={wrapperStyle}>
+                            <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                                 {/* Icon Color */}
+                                <Ionicons 
+                                    name={mood.icon as any} 
+                                    size={28} 
+                                    color={isSelected ? mood.color : colors.textLight} 
+                                />
+                                {isSelected && (
+                                    <Text style={[styles.label, { color: colors.text }]}>
+                                        {mood.label}
+                                    </Text>
+                                )}
+                            </View>
+                        </Wrapper>
                     </ScalePressable>
                 );
             })}
@@ -83,6 +103,16 @@ const styles = StyleSheet.create({
         ...shadows.soft, // Soft shadow for depth
         borderWidth: 1,
         borderColor: colors.border,
+    },
+    moodBtnActive: {
+        width: 68,
+        height: 80,
+        borderRadius: 24,
+        backgroundColor: colors.surface,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2, 
+        ...shadows.glow, // STRICT THEME USAGE
     },
     label: {
         fontSize: 12,

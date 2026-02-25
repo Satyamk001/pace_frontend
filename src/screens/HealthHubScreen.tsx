@@ -1,11 +1,132 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+} from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { createApiService } from '../services/api';
+
+// ─────────────────────────────────────────────────────────
+// Module config — colours kept outside theme intentionally
+// as these are semantic health-category colours, not brand UI
+// ─────────────────────────────────────────────────────────
+
+const MODULES = [
+  {
+    title: 'Food & Calories',
+    icon: 'restaurant-outline',
+    iconFilled: 'restaurant',
+    color: colors.accentDark,
+    route: 'Food',
+    description: 'Track meals & macros',
+  },
+  {
+    title: 'Medicine',
+    icon: 'medkit-outline',
+    iconFilled: 'medkit',
+    color: colors.accentDark,
+    route: 'Medicine',
+    description: 'Schedule & intake logs',
+  },
+  {
+    title: 'Weight',
+    icon: 'barbell-outline',
+    iconFilled: 'barbell',
+    color: colors.accentDark,
+    route: 'Weight',
+    description: 'Track your progress',
+  },
+  {
+    title: 'Reports',
+    icon: 'bar-chart-outline',
+    iconFilled: 'bar-chart',
+    color: colors.accentDark,
+    route: 'Reports',
+    description: 'Insights & trends',
+  },
+];
+
+// ─────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────
+
+const getDayGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+// ─────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────
+
+/** Single stat tile in the Today banner */
+const StatTile = ({
+  icon,
+  iconColor,
+  value,
+  label,
+  onPress,
+}: {
+  icon: any;
+  iconColor: string;
+  value: string;
+  label: string;
+  onPress?: () => void;
+}) => (
+  <TouchableOpacity
+    style={styles.statTile}
+    onPress={onPress}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={[styles.statIconWrap, { backgroundColor: iconColor + '18' }]}>
+      <Ionicons name={icon} size={18} color={iconColor} />
+    </View>
+    <Text style={styles.statValue} numberOfLines={1}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </TouchableOpacity>
+);
+
+/** Module card in the 2-col grid */
+const ModuleCard = ({
+  title,
+  icon,
+  color,
+  route,
+  description,
+  onPress,
+}: (typeof MODULES)[0] & { onPress: () => void }) => (
+  <TouchableOpacity style={styles.moduleCard} onPress={onPress} activeOpacity={0.75}>
+    {/* Icon circle */}
+    <View style={[styles.moduleIconCircle, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon as any} size={26} color={color} />
+    </View>
+
+    {/* Text */}
+    <View style={styles.moduleTextCol}>
+      <Text style={styles.moduleTitle}>{title}</Text>
+      <Text style={styles.moduleDesc}>{description}</Text>
+    </View>
+
+    {/* Arrow */}
+    <View style={[styles.moduleArrow, { backgroundColor: color + '12' }]}>
+      <Ionicons name="chevron-forward" size={14} color={color} />
+    </View>
+  </TouchableOpacity>
+);
+
+// ─────────────────────────────────────────────────────────
+// Main Screen
+// ─────────────────────────────────────────────────────────
 
 export const HealthHubScreen = () => {
   const navigation = useNavigation<any>();
@@ -17,238 +138,369 @@ export const HealthHubScreen = () => {
     calories: 0,
     medicinesTaken: 0,
     medicinesTotal: 0,
-    weight: null as number | null
+    weight: null as number | null,
   });
 
   const today = new Date().toISOString().split('T')[0];
 
   const fetchSummary = async () => {
     try {
-      // 1. Food
-      const foodLogs = await api.getDailyFoodLog(today);
-      const totalCalories = foodLogs ? foodLogs.reduce((sum: number, item: any) => sum + (item.calories || 0), 0) : 0;
+      const [foodLogs, meds, intake, weightHistory] = await Promise.all([
+        api.getDailyFoodLog(today),
+        api.getMedicines(),
+        api.getIntakeHistory(today),
+        api.getWeightHistory(today, today),
+      ]);
 
-      // 2. Medicines
-      const meds = await api.getMedicines();
-      const intake = await api.getIntakeHistory(today);
-      
+      const totalCalories = foodLogs
+        ? foodLogs.reduce((s: number, i: any) => s + (i.calories || 0), 0)
+        : 0;
+
       let totalDoses = 0;
       if (meds) {
-          meds.forEach((m: any) => {
-              // Assuming DAILY for now, or check frequency
-              if (m.frequency === 'DAILY' || !m.frequency) {
-                  totalDoses += (m.times ? m.times.length : 0);
-              }
-          });
+        meds.forEach((m: any) => {
+          if (m.frequency === 'DAILY' || !m.frequency) {
+            totalDoses += m.times?.length ?? 0;
+          }
+        });
       }
-      const takenDoses = intake ? intake.length : 0;
-
-      // 3. Weight
-      const weightHistory = await api.getWeightHistory(today, today);
-      const todayWeight = (weightHistory && weightHistory.length > 0) 
-          ? weightHistory[weightHistory.length - 1].weight 
-          : null;
 
       setSummary({
         calories: totalCalories,
-        medicinesTaken: takenDoses,
+        medicinesTaken: intake?.length ?? 0,
         medicinesTotal: totalDoses,
-        weight: todayWeight
+        weight:
+          weightHistory?.history?.length > 0
+            ? weightHistory.history[weightHistory.history.length - 1].weight
+            : null,
       });
-
-    } catch (error) {
-       console.error('Failed to fetch health summary', error);
+    } catch (e) {
+      console.error('Failed to fetch health summary', e);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchSummary();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { fetchSummary(); }, []));
 
   const onRefresh = async () => {
-      setRefreshing(true);
-      await fetchSummary();
-      setRefreshing(false);
+    setRefreshing(true);
+    await fetchSummary();
+    setRefreshing(false);
   };
 
-  const modules = [
-    {
-      title: 'Food & Calories',
-      icon: 'restaurant',
-      color: '#FF6B6B',
-      route: 'Food',
-      description: 'Track meals'
-    },
-    {
-      title: 'Medicine',
-      icon: 'medkit',
-      color: '#4ECDC4',
-      route: 'Medicine',
-      description: 'Schedule & logs'
-    },
-    {
-      title: 'Weight',
-      icon: 'scale',
-      color: '#45B7D1',
-      route: 'Weight',
-      description: 'Track changes'
-    },
-    {
-      title: 'Reports',
-      icon: 'bar-chart',
-      color: '#A06CD5',
-      route: 'Reports',
-      description: 'Health insights'
-    }
-  ];
+  // Medicine completion fraction for colour hint
+  const medFraction =
+    summary.medicinesTotal > 0
+      ? summary.medicinesTaken / summary.medicinesTotal
+      : 0;
+  const medColor =
+    medFraction === 1 ? colors.mood.great : medFraction > 0 ? colors.mood.okay : colors.accentDark;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Health Hub</Text>
-        <Text style={styles.subtitle}>Manage your health metrics</Text>
-      </View>
-
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
-        
-        {/* Quick Summary Section */}
-        <View style={styles.summarySection}>
-             <Text style={styles.sectionHeader}>Today's Summary</Text>
-             <View style={styles.statsRow}>
-                 {/* Calories Card */}
-                 <View style={styles.statCard}>
-                     <Ionicons name="flame" size={24} color="#FF6B6B" style={{marginBottom: 4}} />
-                     <Text style={styles.statValue}>{summary.calories}</Text>
-                     <Text style={styles.statLabel}>Calories</Text>
-                 </View>
-
-                 {/* Medicine Card */}
-                 <View style={styles.statCard}>
-                     <Ionicons name="medkit" size={24} color="#4ECDC4" style={{marginBottom: 4}} />
-                     <Text style={styles.statValue}>{summary.medicinesTaken} / {summary.medicinesTotal}</Text>
-                     <Text style={styles.statLabel}>Medicines</Text>
-                 </View>
-
-                 {/* Weight Card */}
-                 <View style={styles.statCard}>
-                     <Ionicons name="scale" size={24} color="#45B7D1" style={{marginBottom: 4}} />
-                     <Text style={styles.statValue}>{summary.weight ? `${summary.weight} kg` : '--'}</Text>
-                     <Text style={styles.statLabel}>Weight</Text>
-                 </View>
-             </View>
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <View>
+            {/* <Text style={styles.greeting}>{getDayGreeting()}</Text> */}
+            <Text style={styles.title}>Health Hub</Text>
+          </View>
+          
         </View>
 
-        <Text style={[styles.sectionHeader, { marginTop: spacing.xl }]}>Modules</Text>
-        <View style={styles.grid}>
-          {modules.map((item, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={styles.card}
-              onPress={() => navigation.navigate(item.route)}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-                <Ionicons name={item.icon as any} size={32} color={item.color} />
-              </View>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardDesc}>{item.description}</Text>
-            </TouchableOpacity>
+        {/* ── Today's Summary Banner ── */}
+        <View style={styles.summaryBanner}>
+          {/* Banner header */}
+          <View style={styles.bannerHeader}>
+            <View style={styles.bannerTitleRow}>
+              <View style={styles.bannerDot} />
+              <Text style={styles.bannerTitle}>Today's Summary</Text>
+            </View>
+            <Text style={styles.bannerDate}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </Text>
+          </View>
+
+          {/* Stat tiles */}
+          <View style={styles.statRow}>
+            <StatTile
+              icon="flame-outline"
+              iconColor={colors.accentDark}
+              value={summary.calories > 0 ? `${summary.calories}` : '—'}
+              label="kcal"
+              onPress={() => navigation.navigate('Food')}
+            />
+
+            <View style={styles.statDivider} />
+
+            <StatTile
+              icon="medkit-outline"
+              iconColor={colors.accentDark}
+              value={
+                summary.medicinesTotal > 0
+                  ? `${summary.medicinesTaken}/${summary.medicinesTotal}`
+                  : '—'
+              }
+              label="Medicines"
+              onPress={() => navigation.navigate('Medicine')}
+            />
+
+            <View style={styles.statDivider} />
+
+            <StatTile
+              icon="barbell-outline"
+              iconColor={colors.accentDark}
+              value={summary.weight != null ? `${summary.weight} kg` : '—'}
+              label="Weight"
+              onPress={() => navigation.navigate('Weight')}
+            />
+          </View>
+
+     
+        </View>
+
+        {/* ── Modules ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Modules</Text>
+        </View>
+
+        <View style={styles.moduleList}>
+          {MODULES.map((m) => (
+            <ModuleCard
+              key={m.route}
+              {...m}
+              onPress={() => navigation.navigate(m.route)}
+            />
           ))}
         </View>
 
+        <View style={{ height: 110 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+// ─────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  scroll: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.m,
+  },
+
+  // ── Header
   header: {
-    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: spacing.l,
+  },
+  greeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    letterSpacing: 0.2,
+    marginBottom: 2,
   },
   title: {
-    ...fonts.h1,
+    fontSize: 26,
+    fontWeight: '700',
     color: colors.text,
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    ...fonts.body,
-    color: colors.textLight,
-    marginTop: spacing.xs,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  card: {
-    width: '48%',
+  headerBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    ...shadows.soft,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 4,
   },
-  cardTitle: {
-    ...fonts.h3,
-    fontSize: 16,
+
+  // ── Summary Banner
+  summaryBanner: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    padding: spacing.m,
+    marginBottom: spacing.l,
+    borderWidth: 1,
+    borderColor: colors.border + '70',
+    ...shadows.soft,
+  },
+  bannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.m,
+  },
+  bannerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  bannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+    letterSpacing: -0.1,
   },
-  cardDesc: {
-    ...fonts.caption,
-    color: colors.textLight,
-    textAlign: 'center'
+  bannerDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
-  summarySection: {
-      marginBottom: spacing.md,
+
+  // Stat tiles
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  sectionHeader: {
-      ...fonts.h2,
-      fontSize: 18,
-      marginBottom: spacing.md,
-      color: colors.text
+  statTile: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
   },
-  statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: spacing.sm
-  },
-  statCard: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-      ...shadows.soft
+  statIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   statValue: {
-      ...fonts.h3,
-      fontSize: 18,
-      color: colors.text,
-      marginBottom: 2
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.3,
   },
   statLabel: {
-      ...fonts.caption,
-      color: colors.textLight
-  }
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 44,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
+  },
+
+  // Medicine progress
+  medProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: spacing.m,
+    paddingTop: spacing.s,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '60',
+  },
+  medProgressBg: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.l2,
+    borderRadius: borderRadius.round,
+    overflow: 'hidden',
+  },
+  medProgressFill: {
+    height: '100%',
+    borderRadius: borderRadius.round,
+  },
+  medProgressLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    minWidth: 60,
+    textAlign: 'right',
+  },
+
+  // ── Section header
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: spacing.m,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  sectionCaption: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // ── Module cards (full-width rows)
+  moduleList: {
+    gap: spacing.s,
+  },
+  moduleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.m,
+    padding: spacing.m,
+    borderWidth: 1,
+    borderColor: colors.border + '60',
+    ...shadows.soft,
+    gap: spacing.m,
+  },
+  moduleIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  moduleTextCol: {
+    flex: 1,
+  },
+  moduleTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.2,
+    marginBottom: 2,
+  },
+  moduleDesc: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '400',
+  },
+  moduleArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
 });

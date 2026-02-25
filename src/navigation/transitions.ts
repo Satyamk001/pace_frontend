@@ -2,19 +2,18 @@ import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
 /**
- * Standard "Shuttle-style" Slide Transition
- * Slides in from the right with a slight scale and opacity effect on the previous screen.
+ * Calm Tech Stack Transition
+ * Slides up from the bottom, stacking over the previous screen to maintain context.
  */
 export const standardSlide: NativeStackNavigationOptions = {
-    animation: 'slide_from_right',
-    presentation: 'card', 
-    animationDuration: 300, 
+    animation: 'slide_from_bottom',
+    presentation: 'modal', // Native iOS card stack presentation (preserves previous header slightly in background)
+    animationDuration: 400, // Deliberate, fluid timing
     gestureEnabled: true,
-    gestureDirection: 'horizontal',
-    animationTypeForReplace: 'push',
-    // Android specific to ensure smooth slide
+    gestureDirection: 'vertical',
+    // Android matching
     ...(Platform.OS === 'android' && {
-        animation: 'slide_from_right',
+        animation: 'slide_from_bottom',
     }),
 };
 

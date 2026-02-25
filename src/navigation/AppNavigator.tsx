@@ -1,10 +1,11 @@
-import React from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
-  createMaterialTopTabNavigator,
-  MaterialTopTabBarProps,
+    createMaterialTopTabNavigator,
+    MaterialTopTabBarProps,
 } from '@react-navigation/material-top-tabs';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,184 +24,203 @@ import { StatsScreen } from '../screens/StatsScreen';
 import { TaskDetailScreen } from '../screens/TaskDetailScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
-
-// Phase 2 Screens
 import { FoodScreen } from '../screens/FoodScreen';
 import { MedicineScreen } from '../screens/MedicineScreen';
 import { WeightScreen } from '../screens/WeightScreen';
 import { HealthHubScreen } from '../screens/HealthHubScreen';
 import { OfflineProvider } from '../context/OfflineContext';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
-import { ScalePressable } from '../components/ui/ScalePressable';
 
 export type RootStackParamList = {
-  MainTabs: undefined;
-  Auth: undefined;
-  AddTask: undefined;
-  HealthCheckIn: undefined;
-  TaskDetail: { todo: any };
-  Premium: undefined;
-  Food: undefined;
-  Medicine: undefined;
-  Weight: undefined;
-  Reports: undefined;
+    MainTabs: undefined;
+    Auth: undefined;
+    AddTask: undefined;
+    HealthCheckIn: undefined;
+    TaskDetail: { todo: any };
+    Premium: undefined;
+    Food: undefined;
+    Medicine: undefined;
+    Weight: undefined;
+    Reports: undefined;
 };
 
 export type TabParamList = {
-  Home: undefined;
-  Calendar: undefined;
-  Health: undefined; // Changed from Stats
-  Profile: undefined;
+    Home: undefined;
+    Calendar: undefined;
+    Health: undefined;
+    Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createMaterialTopTabNavigator<TabParamList>();
 
-const PILL_SIZE = 40;
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab config
+// ─────────────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-    tabContainer: {
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        right: 20,
-    },
-    tabBar: {
-        flexDirection: 'row',
-        backgroundColor: '#FFFFFF',
-        borderRadius: borderRadius.xl,
-        height: 68,
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.10,
-        shadowRadius: 14,
-        elevation: 6,
-    },
-    tabItem: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    pillBase: {
-        position: 'absolute',
-        width: PILL_SIZE,
-        height: PILL_SIZE,
-        borderRadius: PILL_SIZE / 2.5,
-        backgroundColor: colors.surfaceSoft,
-    },
-    activeDot: {
-        position: 'absolute',
-        bottom: -10,
-        width: 5,
-        height: 5,
-        borderRadius: 2.5,
-        backgroundColor: colors.accentDark || colors.primary,
-    }
-});
+const TAB_CONFIG: Record<string, { focused: any; outline: any; label: string }> = {
+    Home: { focused: 'home', outline: 'home-outline', label: 'Home' },
+    Calendar: { focused: 'calendar', outline: 'calendar-outline', label: 'Schedule' },
+    Health: { focused: 'heart', outline: 'heart-outline', label: 'Health' },
+    Profile: { focused: 'person', outline: 'person-outline', label: 'Profile' },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TabItem
+// ─────────────────────────────────────────────────────────────────────────────
 
 const TabItem = ({ isFocused, onPress, onLongPress, route }: any) => {
     const { isProUser } = useSubscription();
+    const cfg = TAB_CONFIG[route.name] ?? TAB_CONFIG.Home;
 
-    let iconNameFocused: any;
-    let iconNameOutline: any;
-    if (route.name === 'Home') { iconNameFocused = 'home'; iconNameOutline = 'home-outline'; }
-    else if (route.name === 'Calendar') { iconNameFocused = 'calendar'; iconNameOutline = 'calendar-outline'; }
-    else if (route.name === 'Health') { iconNameFocused = 'heart'; iconNameOutline = 'heart-outline'; }
-    else if (route.name === 'Profile') { iconNameFocused = 'person'; iconNameOutline = 'person-outline'; }
-
-    const iconName = isFocused ? iconNameFocused : iconNameOutline;
-
-    const pillScale = React.useRef(new Animated.Value(isFocused ? 1 : 0.5)).current;
-    const pillOpacity = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-
-    const iconTranslateY = React.useRef(new Animated.Value(isFocused ? -3 : 0)).current;
-    const iconScale = React.useRef(new Animated.Value(isFocused ? 1.18 : 1)).current;
-
+    // Animation refs
+    const labelOpacity = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+    const labelTranslateX = React.useRef(new Animated.Value(isFocused ? 0 : -6)).current;
+    const chipWidth = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current; // 0→1 scale-x
+    const iconScale = React.useRef(new Animated.Value(isFocused ? 1.1 : 1)).current;
     const pressScale = React.useRef(new Animated.Value(1)).current;
+    const iconColor = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
     React.useEffect(() => {
+        const spring = (val: Animated.Value, to: number, stiffness = 200, damping = 18) =>
+            Animated.spring(val, { toValue: to, stiffness, damping, useNativeDriver: true });
+        const timing = (val: Animated.Value, to: number, dur = 180) =>
+            Animated.timing(val, { toValue: to, duration: dur, useNativeDriver: true });
+
         if (isFocused) {
             Animated.parallel([
-                Animated.spring(pillScale, { toValue: 1, damping: 14, stiffness: 180, useNativeDriver: true }),
-                Animated.spring(pillOpacity, { toValue: 1, damping: 14, stiffness: 180, useNativeDriver: true }),
-                Animated.spring(iconTranslateY, { toValue: -3, damping: 12, stiffness: 160, useNativeDriver: true }),
-                Animated.spring(iconScale, { toValue: 1.18, damping: 12, stiffness: 160, useNativeDriver: true }),
+                spring(iconScale, 1.1, 220, 16),
+                spring(labelOpacity, 1, 220, 20),
+                spring(labelTranslateX, 0, 220, 18),
+                spring(chipWidth, 1, 180, 18),
+                timing(iconColor, 1),
             ]).start();
         } else {
             Animated.parallel([
-                Animated.spring(pillScale, { toValue: 0.5, damping: 14, stiffness: 180, useNativeDriver: true }),
-                Animated.timing(pillOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-                Animated.spring(iconTranslateY, { toValue: 0, damping: 14, stiffness: 180, useNativeDriver: true }),
-                Animated.spring(iconScale, { toValue: 1, damping: 14, stiffness: 180, useNativeDriver: true }),
+                spring(iconScale, 1, 200, 20),
+                timing(labelOpacity, 0, 140),
+                spring(labelTranslateX, -6, 200, 20),
+                timing(chipWidth, 0, 160),
+                timing(iconColor, 0),
             ]).start();
         }
     }, [isFocused]);
 
     const handlePressIn = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.spring(pressScale, { toValue: 0.88, useNativeDriver: true }).start();
+        Animated.spring(pressScale, { toValue: 0.88, useNativeDriver: true, stiffness: 400, damping: 20 }).start();
     };
 
     const handlePressOut = () => {
-        Animated.spring(pressScale, { toValue: 1, useNativeDriver: true }).start();
+        Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, stiffness: 300, damping: 14 }).start();
     };
 
-    const activeColor = colors.accentDark || colors.primary;
-    const inactiveColor = colors.textLight;
+    const handlePress = () => {
+        if (isFocused) {
+            // Double-tap on active tab → medium haptic (scroll-to-top hint)
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onPress();
+    };
+
+    const handleLongPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        onLongPress();
+    };
+
+    const activeColor = colors.accentDark;
+    const inactiveColor = colors.textSecondary;
+
+    // Interpolate icon color from inactive→active
+    const animatedIconColor = iconColor.interpolate({
+        inputRange: [0, 1],
+        outputRange: [inactiveColor, activeColor],
+    });
+
+    // Chip width: scale from 0→chip full width (we use scaleX on a fixed-width container)
+    const chipScaleX = chipWidth.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.01, 1],
+        extrapolate: 'clamp',
+    });
 
     return (
         <TouchableOpacity
             activeOpacity={1}
-            onPress={onPress}
-            onLongPress={onLongPress}
+            onPress={handlePress}
+            onLongPress={handleLongPress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            style={styles.tabItem}
+            style={tabStyles.tabItem}
+            accessibilityRole="button"
+            accessibilityLabel={cfg.label}
+            accessibilityState={{ selected: isFocused }}
         >
-            <Animated.View style={[{ alignItems: 'center', justifyContent: 'center' }, { transform: [{ scale: pressScale }] }]}>
-                {/* Pill Background */}
-                <Animated.View 
+            <Animated.View style={[tabStyles.itemInner, { transform: [{ scale: pressScale }] }]}>
+                {/* ── Pill chip (active indicator) ── */}
+                <Animated.View
                     style={[
-                        styles.pillBase,
-                        {
-                            opacity: pillOpacity,
-                            transform: [{ scale: pillScale }]
-                        }
-                    ]} 
+                        tabStyles.chip,
+                        { transform: [{ scaleX: chipScaleX }] },
+                    ]}
                 />
 
-                {/* Icon */}
-                <Animated.View style={{ transform: [{ translateY: iconTranslateY }, { scale: iconScale }] }}>
-                    <View>
-                        <Ionicons 
-                            name={iconName} 
-                            size={22} 
-                            color={isFocused ? activeColor : inactiveColor} 
-                            style={{ zIndex: 1 }} 
+                {/* ── Icon + Label row ── */}
+                <Animated.View
+                    style={[
+                        tabStyles.iconLabelRow,
+                        { transform: [{ scale: iconScale }] },
+                    ]}
+                >
+                    {/* Icon */}
+                    <Animated.View>
+                        <Ionicons
+                            name={isFocused ? cfg.focused : cfg.outline}
+                            size={21}
+                            color={isFocused ? activeColor : inactiveColor}
                         />
+                        {/* Crown for pro users on Profile */}
                         {route.name === 'Profile' && isProUser && (
-                            <View style={{ position: 'absolute', top: -10, alignSelf: 'center', zIndex: 2 }}>
-                                <MaterialCommunityIcons name="crown" size={14} color={colors.warning} style={{
-                                    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                                    textShadowOffset: {width: 0, height: 1},
-                                    textShadowRadius: 2
-                                }} />
+                            <View style={tabStyles.crown}>
+                                <MaterialCommunityIcons
+                                    name="crown"
+                                    size={11}
+                                    color={colors.premium}
+                                />
                             </View>
                         )}
-                    </View>
+                    </Animated.View>
+
+                    {/* Label — slides in when focused */}
+                    <Animated.Text
+                        style={[
+                            tabStyles.label,
+                            {
+                                opacity: labelOpacity,
+                                transform: [{ translateX: labelTranslateX }],
+                                color: activeColor,
+                            },
+                        ]}
+                        numberOfLines={1}
+                    >
+                        {cfg.label}
+                    </Animated.Text>
                 </Animated.View>
             </Animated.View>
         </TouchableOpacity>
     );
 };
 
-// Custom Tab Bar
+// ─────────────────────────────────────────────────────────────────────────────
+// CustomTabBar
+// ─────────────────────────────────────────────────────────────────────────────
+
 const CustomTabBar = ({ state, descriptors, navigation }: MaterialTopTabBarProps) => {
     return (
-        <View style={styles.tabContainer}>
-            <View style={styles.tabBar}>
+        <View style={tabStyles.tabBarOuter} pointerEvents="box-none">
+            <View style={tabStyles.tabBar}>
                 {state.routes.map((route: any, index: number) => {
                     const isFocused = state.index === index;
 
@@ -210,26 +230,22 @@ const CustomTabBar = ({ state, descriptors, navigation }: MaterialTopTabBarProps
                             target: route.key,
                             canPreventDefault: true,
                         });
-
                         if (!isFocused && !event.defaultPrevented) {
                             navigation.navigate(route.name);
                         }
                     };
 
                     const onLongPress = () => {
-                        navigation.emit({
-                            type: 'tabLongPress',
-                            target: route.key,
-                        });
+                        navigation.emit({ type: 'tabLongPress', target: route.key });
                     };
 
                     return (
-                        <TabItem 
-                            key={index} 
-                            isFocused={isFocused} 
-                            onPress={onPress} 
-                            onLongPress={onLongPress} 
-                            route={route} 
+                        <TabItem
+                            key={route.key}
+                            isFocused={isFocused}
+                            onPress={onPress}
+                            onLongPress={onLongPress}
+                            route={route}
                         />
                     );
                 })}
@@ -238,94 +254,167 @@ const CustomTabBar = ({ state, descriptors, navigation }: MaterialTopTabBarProps
     );
 };
 
-const MainTabs = () => {
-  return (
+// ─────────────────────────────────────────────────────────────────────────────
+// MainTabs
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MainTabs = () => (
     <Tab.Navigator
-      tabBarPosition="bottom"
-      initialLayout={{ width: Dimensions.get('window').width }}
-      screenOptions={{
-        swipeEnabled: false,
-        animationEnabled: true, // Enable smooth sliding animation
-        tabBarStyle: {
-            backgroundColor: 'transparent', // We handle background in container
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            elevation: 0,
-            shadowOpacity: 0,
-        },
-        tabBarIndicatorStyle: {
-            display: 'none', // correct way to hide indicator in material top tabs
-        },
-        tabBarContentContainerStyle: {
-            backgroundColor: 'transparent'
-        },
-        tabBarItemStyle: {
-             width: 'auto',
-             flex: 1
-        }
-      }}
-      tabBar={(props) => <CustomTabBar {...props} />}
+        tabBarPosition="bottom"
+        initialLayout={{ width: Dimensions.get('window').width }}
+        screenOptions={{
+            swipeEnabled: false,
+            animationEnabled: true,
+            tabBarStyle: { display: 'none' },
+            tabBarIndicatorStyle: { display: 'none' },
+        }}
+        tabBar={(props) => <CustomTabBar {...props} />}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Calendar" component={CalendarScreen} />
-      <Tab.Screen name="Health" component={HealthHubScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Calendar" component={CalendarScreen} />
+        <Tab.Screen name="Health" component={HealthHubScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
-  );
-};
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppNavigator
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const AppNavigator = () => {
-  const { isSignedIn, isLoaded } = useAuth();
+    const { isSignedIn, isLoaded } = useAuth();
+    const [offlineSignedIn, setOfflineSignedIn] = useState<boolean | null>(null);
 
-  if (!isLoaded) return null;
+    useEffect(() => {
+        const check = async () => {
+            if (isLoaded && isSignedIn) {
+                setOfflineSignedIn(true);
+            } else {
+                const cached = await AsyncStorage.getItem('offline_session_timestamp');
+                setOfflineSignedIn(
+                    cached && Date.now() - parseInt(cached) < 7 * 24 * 60 * 60 * 1000
+                        ? true
+                        : false
+                );
+            }
+        };
+        check();
+    }, [isLoaded, isSignedIn]);
 
-  return (
-    <OfflineProvider>
-      <SubscriptionProvider>
-        <NavigationContainer>
-          <Stack.Navigator
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-              ...standardSlide, // Default transition
-            }}
-          >
-            {isSignedIn ? (
-              <>
-                <Stack.Screen name="MainTabs" component={MainTabs} />
-                <Stack.Screen
-                    name="AddTask"
-                    component={AddTaskScreen}
-                    options={modalSlide}
-                />
-                <Stack.Screen
-                    name="HealthCheckIn"
-                    component={HealthCheckInScreen}
-                    options={modalSlide}
-                />
-                <Stack.Screen
-                    name="TaskDetail"
-                    component={TaskDetailScreen}
-                    options={standardSlide}
-                />
-                 <Stack.Screen
-                    name="Premium"
-                    component={PremiumScreen}
-                    options={modalSlide}
-                />
-                 <Stack.Screen name="Food" component={FoodScreen} options={standardSlide} />
-                 <Stack.Screen name="Medicine" component={MedicineScreen} options={standardSlide} />
-                 <Stack.Screen name="Weight" component={WeightScreen} options={standardSlide} />
-                 <Stack.Screen name="Reports" component={StatsScreen} options={standardSlide} />
-              </>
-            ) : (
-              <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
-            )}
-          </Stack.Navigator>
-        </NavigationContainer>
-      </SubscriptionProvider>
-    </OfflineProvider>
-  );
+    if (!isLoaded && offlineSignedIn === null) return null;
+
+    return (
+        <OfflineProvider>
+            <SubscriptionProvider>
+                <NavigationContainer>
+                    <Stack.Navigator
+                        screenOptions={{
+                            headerShown: false,
+                            contentStyle: { backgroundColor: colors.background },
+                            ...standardSlide,
+                        }}
+                    >
+                        {isSignedIn || offlineSignedIn ? (
+                            <>
+                                <Stack.Screen name="MainTabs" component={MainTabs} />
+                                <Stack.Screen name="AddTask" component={AddTaskScreen} options={modalSlide} />
+                                <Stack.Screen name="HealthCheckIn" component={HealthCheckInScreen} options={modalSlide} />
+                                <Stack.Screen name="TaskDetail" component={TaskDetailScreen} options={standardSlide} />
+                                <Stack.Screen name="Premium" component={PremiumScreen} options={modalSlide} />
+                                <Stack.Screen name="Food" component={FoodScreen} options={standardSlide} />
+                                <Stack.Screen name="Medicine" component={MedicineScreen} options={standardSlide} />
+                                <Stack.Screen name="Weight" component={WeightScreen} options={standardSlide} />
+                                <Stack.Screen name="Reports" component={StatsScreen} options={standardSlide} />
+                            </>
+                        ) : (
+                            <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
+                        )}
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </SubscriptionProvider>
+        </OfflineProvider>
+    );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
+
+const tabStyles = StyleSheet.create({
+    tabBarOuter: {
+        position: 'absolute',
+        bottom: 24,
+        left: 16,
+        right: 16,
+    },
+    tabBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.xl,  // 36 — very rounded pill shape
+        height: 64,
+        paddingHorizontal: 6,
+        // Layered shadow for premium floating feel
+        shadowColor: '#1A1400',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.10,
+        shadowRadius: 24,
+        elevation: 12,
+        borderWidth: 1,
+        borderColor: colors.border + '80',
+    },
+
+    // Each tap target
+    tabItem: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+    },
+
+    // Inner wrapper (receives the press scale)
+    itemInner: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        minWidth: 44,
+        height: 44,
+    },
+
+    // Expanding pill chip that slides behind the icon+label
+    chip: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: colors.accentSoft, // '#ECFDF5' — soft emerald tint
+        borderRadius: borderRadius.round,
+    },
+
+    // Icon + label in a tight horizontal row
+    iconLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 12,
+        zIndex: 1,
+    },
+
+    // Animated label shown only when focused
+    label: {
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 0.1,
+        // color is animated inline
+    },
+
+    // Pro crown badge
+    crown: {
+        position: 'absolute',
+        top: -6,
+        right: -2,
+        zIndex: 2,
+        transform: [{ rotate: '20deg' }],
+    },
+});

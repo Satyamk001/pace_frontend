@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface, // Clean white/surface
         borderRadius: borderRadius.l, // Soft corners (24px)
         padding: spacing.m,
-        ...shadows.level1, // Very subtle lift
+        ...shadows.soft, // Very subtle lift
         borderWidth: 1,
         borderColor: colors.border,
         height: 140, // Taller, more vertical breathing room

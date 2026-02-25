@@ -7,10 +7,12 @@ import { ScalePressable } from './ui/ScalePressable';
 
 interface ScheduleCardProps {
     title: string;
-    startTime: string; // "10:00"
-    endTime?: string; // "10:15"
+    startTime?: string;
+    endTime?: string;
+    dueDate?: string;
     type?: 'MEETING' | 'TASK' | 'BREAK' | 'OTHER';
     color?: string;
+    energyLevel?: string;
     isCompleted?: boolean;
     progress?: number; // 0-100
     onPress?: () => void;
@@ -21,8 +23,10 @@ export const ScheduleCard = ({
     title, 
     startTime, 
     endTime, 
+    dueDate,
     type = 'TASK', 
     color = colors.primary,
+    energyLevel,
     isCompleted,
     progress = 0,
     onPress,
@@ -43,16 +47,31 @@ export const ScheduleCard = ({
           } 
         : { backgroundColor: colors.surface };
 
+    const getEnergyConfig = () => {
+        switch (energyLevel) {
+            case 'LOW': return { color: colors.mood.great, icon: 'leaf-outline' as const };
+            case 'MEDIUM': return { color: colors.mood.okay, icon: 'sunny-outline' as const };
+            case 'HIGH': return { color: colors.mood.pain, icon: 'flame-outline' as const };
+            default: return { color: accentColor, icon: 'flash-outline' as const };
+        }
+    };
+    const energy = getEnergyConfig();
+
+    const getFormattedDate = () => {
+        if (!dueDate && !startTime) return null;
+        if (dueDate) {
+            const date = new Date(dueDate);
+            const now = new Date();
+            const isOverdue = date < now && !isCompleted;
+            const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return { text: timeString, isWarning: isOverdue };
+        }
+        return { text: startTime, isWarning: false };
+    };
+    const dateInfo = getFormattedDate();
+
     return (
         <ScalePressable style={styles.container} onPress={onPress}>
-            {/* 1. Time Label (Above Card) */}
-            <View style={styles.timeRow}>
-                <Text style={styles.timeText}>
-                    {startTime}
-                    {endTime ? ` - ${endTime}` : ''}
-                </Text>
-            </View>
-
             {/* 2. Card Content */}
             <View style={[styles.card, containerStyle]}>
                 
@@ -71,14 +90,33 @@ export const ScheduleCard = ({
                     </TouchableOpacity>
                 </View>
 
-                {/* Bottom Row: Energy Badge + Progress */}
-                <View style={styles.footerRow}>
-                    {/* Energy Badge */}
-                    <View style={[styles.energyBadge, { backgroundColor: accentColor + '20' }]}>
-                        <Ionicons name="flash" size={10} color={accentColor} style={{ marginRight: 4 }} />
-                        <Text style={[styles.energyText, { color: accentColor }]}>
-                            {type === 'MEETING' ? 'Mid Energy' : type === 'BREAK' ? 'Recharge' : 'High Energy'}
-                        </Text>
+                {/* Bottom Row: Chips + Progress */}
+                <View style={styles.metaRow}>
+                    <View style={styles.chipsRow}>
+                        {/* Time Chip */}
+                        {dateInfo && (
+                            <View style={[
+                                styles.metaChip,
+                                { borderColor: dateInfo.isWarning ? colors.mood.pain : colors.border }
+                            ]}>
+                                <Ionicons
+                                    name="time-outline"
+                                    size={12}
+                                    color={colors.textPrimary}
+                                />
+                                <Text style={styles.metaText}>
+                                    {dateInfo.text}
+                                </Text>
+                            </View>
+                        )}
+                        
+                        {/* Energy Chip */}
+                        <View style={[styles.metaChip, { borderColor: energy.color }]}>
+                            <Ionicons name={energy.icon} size={12} color={colors.textPrimary} />
+                            <Text style={styles.metaText}>
+                                {energyLevel ? energyLevel.toLowerCase() : type.toLowerCase()}
+                            </Text>
+                        </View>
                     </View>
 
                     {/* Progress Bar (if active) */}
@@ -101,26 +139,14 @@ const styles = StyleSheet.create({
         marginBottom: spacing.l, // Increased spacing
         paddingHorizontal: spacing.l,
     },
-    timeRow: {
-        marginBottom: 6,
-        paddingLeft: 4, // Align visually with card curve
-    },
-    timeText: {
-        ...typography.caption,
-        fontSize: 13,
-        fontWeight: '600',
-        color: colors.textSecondary,
-        letterSpacing: 0.5,
-    },
     card: {
-        borderRadius: 24, // 24px radius
-        padding: spacing.m,
-        ...shadows.soft, // Stronger soft shadow
-        shadowOpacity: 0.08, // Custom tweak for "slightly stronger"
-        shadowRadius: 12,
-        elevation: 3,
+        borderRadius: borderRadius.l, 
+        paddingVertical: spacing.m,
+        paddingHorizontal: spacing.m,
+        ...shadows.soft, 
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.02)',
+        borderColor: colors.border + '30',
+        backgroundColor: colors.surface,
     },
     headerRow: {
         flexDirection: 'row',
@@ -144,23 +170,33 @@ const styles = StyleSheet.create({
     checkbox: {
         marginTop: 2
     },
-    footerRow: {
+    metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        marginTop: 4,
     },
-    energyBadge: {
+    chipsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
+        gap: spacing.s,
     },
-    energyText: {
-        // fontFamily: typography.fontFamily, // Removed non-existent property
+    metaChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: borderRadius.round,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        gap: 4,
+    },
+    metaText: {
+        ...typography.caption,
         fontSize: 11,
         fontWeight: '700',
-        letterSpacing: 0.3,
+        textTransform: 'capitalize',
+        color: colors.textPrimary,
     },
     miniProgress: {
         flexDirection: 'row',

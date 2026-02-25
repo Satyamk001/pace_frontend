@@ -1,5 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, RefreshControl, Switch, ActivityIndicator } from 'react-native';
+import {
+    View, Text, StyleSheet, TouchableOpacity, ScrollView,
+    RefreshControl, Switch, ActivityIndicator, Animated
+} from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
 import { MascotAvatar } from '../components/MascotAvatar';
@@ -9,12 +12,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ProfileSkeleton, ProfileSettingsSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
-import { BackButton } from '../components/ui/BackButton';
 import { StorageService } from '../services/StorageService';
 import { NotificationService } from '../services/NotificationService';
 import { useOffline } from '../context/OfflineContext';
 import { ExportHelper } from '../utils/ExportHelper';
 import { useSubscription } from '../context/SubscriptionContext';
+import { PainHeatmap } from '../components/PainHeatmap';
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { signOut, getToken } = useAuth();
@@ -23,43 +26,24 @@ export const ProfileScreen = ({ navigation }: any) => {
     const { syncAllData, lastSynced } = useOffline();
     const { isProUser } = useSubscription();
 
-    const [stats, setStats] = useState({
-        streak: 0,
-        totalTasks: 0,
-        calmDays: 0
-    });
+    const [calendarStats, setCalendarStats] = useState<any>({});
+    const [heatmapYear, setHeatmapYear] = useState<number>(new Date().getFullYear());
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
-    // Dialog State
     const [dialogConfig, setDialogConfig] = useState<{
-        visible: boolean;
-        title: string;
-        message?: string;
-        actions?: any[];
+        visible: boolean; title: string; message?: string; actions?: any[];
     }>({ visible: false, title: '' });
 
     const closeDialog = () => setDialogConfig(prev => ({ ...prev, visible: false }));
 
     const fetchStats = async () => {
         try {
-            // First fetch and cache raw data for offline support and 7-day rolling calculations
-            const [allTodos, calendar] = await Promise.all([
-                api.getTodos(), // fetches all historically
-                api.getCalendarData() // fetches historical calendar mapping
-            ]);
-
+            const [allTodos, calendar] = await Promise.all([api.getTodos(), api.getCalendarData()]);
             await StorageService.syncTodos(allTodos);
             await StorageService.syncCalendar(calendar);
-
-            // Calculate locally scoped 7-day stats as requested (Feature 1)
-            const localStats = await StorageService.calculate7DayStats();
-            setStats(localStats);
+            setCalendarStats(calendar || {});
         } catch (e) {
             console.error('Error in fetchStats:', e);
-            // Fallback to locally cached stats if network is unavailable
-            const localStats = await StorageService.calculate7DayStats();
-            setStats(localStats);
         } finally {
             setLoading(false);
         }
@@ -71,16 +55,19 @@ export const ProfileScreen = ({ navigation }: any) => {
         setRefreshing(false);
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchStats();
-        }, [])
-    );
+    useFocusEffect(useCallback(() => { fetchStats(); loadNotificationState(); }, []));
+
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const loadNotificationState = async () => {
+        const isEnabled = await NotificationService.getNotificationsEnabled();
+        setNotificationsEnabled(isEnabled);
+    };
 
     const handleSignOut = () => {
         setDialogConfig({
-            visible: true,
-            title: "Sign Out",
+            visible: true, title: "Sign Out",
             message: "Are you sure you want to sign out?",
             actions: [
                 { text: "Cancel", style: "cancel", onPress: closeDialog },
@@ -89,71 +76,31 @@ export const ProfileScreen = ({ navigation }: any) => {
         });
     };
 
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchStats();
-            loadNotificationState();
-        }, [])
-    );
-
-    const loadNotificationState = async () => {
-        const isEnabled = await NotificationService.getNotificationsEnabled();
-        setNotificationsEnabled(isEnabled);
-    };
-
     const handleSync = async () => {
         setIsSyncing(true);
         try {
             await syncAllData();
-            setDialogConfig({
-                visible: true,
-                title: "Sync Complete",
-                message: "Your data is backed up safely.",
-                actions: [{ text: "OK", onPress: closeDialog }]
-            });
+            setDialogConfig({ visible: true, title: "Sync Complete", message: "Your data is backed up safely.", actions: [{ text: "OK", onPress: closeDialog }] });
         } catch (e) {
-            setDialogConfig({
-                visible: true,
-                title: "Sync Failed",
-                message: "Please check your network and try again.",
-                actions: [{ text: "OK", onPress: closeDialog }]
-            });
-        } finally {
-            setIsSyncing(false);
-        }
+            setDialogConfig({ visible: true, title: "Sync Failed", message: "Please check your network and try again.", actions: [{ text: "OK", onPress: closeDialog }] });
+        } finally { setIsSyncing(false); }
     };
 
     const handleExport = () => {
-        if (!isProUser) {
-            navigation.navigate('Premium');
-            return;
-        }
-
+        if (!isProUser) { navigation.navigate('Premium'); return; }
         setDialogConfig({
-            visible: true,
-            title: "Export Data",
-            message: "Choose your preferred export format:",
+            visible: true, title: "Export Data", message: "Choose your preferred export format:",
             actions: [
                 { text: "Cancel", style: "cancel", onPress: closeDialog },
-                { text: "Export CSV", onPress: async () => {
-                    closeDialog();
-                    await ExportHelper.exportToCSV();
-                }},
-                { text: "Export PDF", onPress: async () => {
-                    closeDialog();
-                    await ExportHelper.exportToPDF();
-                }}
+                { text: "Export CSV", onPress: async () => { closeDialog(); await ExportHelper.exportToCSV(); } },
+                { text: "Export PDF", onPress: async () => { closeDialog(); await ExportHelper.exportToPDF(); } }
             ]
         });
     };
 
     const handlePrivacy = () => {
         setDialogConfig({
-            visible: true,
-            title: "Privacy Policy",
+            visible: true, title: "Privacy Policy",
             message: "We value your privacy. \n\n1. Your data is yours.\n2. We don't sell your data.\n3. Health data is encrypted.",
             actions: [{ text: "Got it", onPress: closeDialog }]
         });
@@ -165,315 +112,351 @@ export const ProfileScreen = ({ navigation }: any) => {
         await NotificationService.setNotificationsEnabled(newValue);
     };
 
-    if (!isLoaded) {
-        return <ProfileSkeleton />;
-    }
+    if (!isLoaded) return <ProfileSkeleton />;
+
+    // ─── Setting rows config ───────────────────────────────────────────────────
+    const settingRows = [
+        {
+            key: 'notifications',
+            icon: 'notifications-outline' as const,
+            label: 'Notifications',
+            right: (
+                <View style={{ transform: [{ scale: 0.8 }] }}>
+                    <Switch
+                        trackColor={{ false: colors.border, true: colors.primary }}
+                        thumbColor={colors.surface}
+                        ios_backgroundColor={colors.border}
+                        onValueChange={toggleSwitch}
+                        value={notificationsEnabled}
+                    />
+                </View>
+            ),
+            onPress: undefined,
+        },
+        {
+            key: 'sync',
+            icon: (isSyncing ? 'sync' : 'sync-outline') as any,
+            label: isSyncing ? 'Syncing…' : 'Sync Data',
+            sub: `Last synced: ${lastSynced ? new Date(lastSynced).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never'}`,
+            right: isSyncing
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />,
+            onPress: handleSync,
+            disabled: isSyncing,
+        },
+        {
+            key: 'privacy',
+            icon: 'shield-checkmark-outline' as const,
+            label: 'Privacy Policy',
+            right: <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />,
+            onPress: handlePrivacy,
+        },
+        {
+            key: 'export',
+            icon: 'download-outline' as const,
+            label: 'Export Data',
+            right: <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />,
+            onPress: handleExport,
+        },
+    ];
+
+
 
     return (
-        <ScreenLayout edges={['top']}>
-            <CustomDialog 
+        <ScreenLayout edges={['top']} useGradient="hero">
+            <CustomDialog
                 visible={dialogConfig.visible}
                 title={dialogConfig.title}
                 message={dialogConfig.message}
                 actions={dialogConfig.actions}
                 onClose={closeDialog}
             />
-            {/* Fixed Header */}
-            <View style={styles.fixedHeader}>
-                <View style={styles.headerTopRow}>
-                    <BackButton style={styles.backBtn} />
-                </View>
-                <MascotAvatar size="large" imageUrl={user?.imageUrl} />
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.m }}>
-                    <Text style={[styles.userName, { marginTop: 0 }]}>{user?.fullName || "Pace User"}</Text>
-                    {isProUser && (
-                        <View style={{ 
-                            flexDirection: 'row', 
-                            alignItems: 'center', 
-                            backgroundColor: '#FFFBF0', 
-                            paddingHorizontal: 6, 
-                            paddingVertical: 2, 
-                            borderRadius: 12, 
-                            marginLeft: 8, 
-                            borderWidth: 1, 
-                            borderColor: colors.warning + '40' 
-                        }}>
-                            <MaterialCommunityIcons name="crown" size={12} color={colors.warning} style={{ marginRight: 2 }} />
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: colors.warning }}>PRO</Text>
+
+            {/* ── FIXED HEADER ────────────────────────────────────────────── */}
+            <View style={styles.headerContainer}>
+
+                {/* Profile Identity Row */}
+                <View style={styles.profileRow}>
+                    {/* Avatar */}
+                    <View style={styles.avatarWrap}>
+                        <MascotAvatar size="medium" imageUrl={user?.imageUrl} shape="square" />
+                        {isProUser && (
+                            <View style={styles.proBadge}>
+                                <MaterialCommunityIcons name="crown" size={10} color="#FFF" />
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Identity Info */}
+                    <View style={styles.identityCol}>
+                        <View style={styles.nameRow}>
+                            <Text style={styles.userName}>{user?.fullName || 'Pace User'}</Text>
+                            
                         </View>
-                    )}
-                </View>
-                
-                <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
+                        <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
+                    </View>
 
-
-                <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="flame" size={24} color={colors.primary} style={{marginBottom: 4}} />
-                        {loading ? (
-                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
-                        ) : (
-                             <Text style={styles.statValue}>{stats.streak}</Text>
-                        )}
-                        <Text style={styles.statLabel}>Day Streak</Text>
-                    </View>
-                    <View style={[styles.statItem, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.border }]}>
-                        <Ionicons name="checkmark-circle" size={24} color={colors.accent} style={{marginBottom: 4}} />
-                        {loading ? (
-                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
-                        ) : (
-                             <Text style={styles.statValue}>{stats.totalTasks}</Text>
-                        )}
-                        <Text style={styles.statLabel}>Tasks Done</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Ionicons name="leaf" size={24} color={colors.accent} style={{marginBottom: 4}} />
-                        {loading ? (
-                             <SkeletonBox width={40} height={20} borderRadius={4} style={{ marginBottom: 4 }} /> 
-                        ) : (
-                             <Text style={styles.statValue}>{stats.calmDays}</Text>
-                        )}
-                        <Text style={styles.statLabel}>Calm Days</Text>
-                    </View>
+                   
                 </View>
-                <Text style={styles.statsSubLabel}>* Last 7 days</Text>
             </View>
 
-            {/* Scrollable Content */}
-            {loading ? (
-                <ProfileSettingsSkeleton />
-            ) : (
-            <ScrollView 
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
-            {!isProUser && (
-                <TouchableOpacity 
-                    style={styles.premiumCard}
-                    onPress={() => navigation.navigate('Premium')}
+            {/* ── SCROLLABLE CONTENT ──────────────────────────────────────── */}
+            {loading ? <ProfileSettingsSkeleton /> : (
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 >
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                        <View style={styles.premiumIcon}>
-                            <Ionicons name="diamond" size={24} color="#FFF" />
-                        </View>
-                        <View>
-                            <Text style={styles.premiumTitle}>Pace Pro</Text>
-                            <Text style={styles.premiumSubtitle}>Unlock advanced insights & themes.</Text>
-                        </View>
+
+                    {/* Heatmap */}
+                    <PainHeatmap 
+                        year={heatmapYear}
+                        calendarData={calendarStats}
+                        onYearChange={setHeatmapYear}
+                    />
+
+                    {/* Premium upsell */}
+                    {!isProUser && (
+                        <TouchableOpacity style={styles.premiumCard} onPress={() => navigation.navigate('Premium')} activeOpacity={0.85}>
+                            <View style={styles.premiumLeft}>
+                                <View style={styles.premiumIcon}>
+                                    <Ionicons name="diamond" size={20} color="#FFF" />
+                                </View>
+                                <View>
+                                    <Text style={styles.premiumTitle}>Pace Pro</Text>
+                                    <Text style={styles.premiumSubtitle}>Unlock advanced insights & themes</Text>
+                                </View>
+                            </View>
+                            <View style={styles.premiumChevron}>
+                                <Ionicons name="chevron-forward" size={14} color={colors.premium} />
+                            </View>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Settings card layer - Refactored to Grid */}
+                    <View style={styles.settingsGrid}>
+                        {settingRows.map((row, i) => (
+                            <TouchableOpacity
+                                key={row.key}
+                                style={styles.settingsCardItem}
+                                onPress={row.onPress}
+                                disabled={row.disabled || !row.onPress}
+                                activeOpacity={row.onPress ? 0.7 : 1}
+                            >
+                                <View style={styles.settingTopRow}>
+                                    <View style={styles.settingIconWrap}>
+                                        <Ionicons name={row.icon} size={20} color={colors.accentDark} />
+                                    </View>
+                                    <View style={styles.settingRight}>{row.right}</View>
+                                </View>
+                                <View style={styles.settingTextContent}>
+                                    <Text style={styles.settingLabel}>{row.label}</Text>
+                                    {row.sub && <Text style={styles.settingSub}>{row.sub}</Text>}
+                                </View>
+                            </TouchableOpacity>
+                        ))}
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#DAA520" />
-                </TouchableOpacity>
-            )}
-            
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}></Text>
-                <View style={styles.settingsList}>
-                    
-                    {/* Notifications Toggle */}
-                    <View style={[styles.settingItem, { borderBottomWidth: 1 }]}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                            <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
-                                <Ionicons name="notifications-outline" size={20} color={colors.text} />
-                            </View>
-                            <Text style={styles.settingLabel}>Notifications</Text>
-                        </View>
-                        <Switch
-                            trackColor={{ false: colors.border, true: colors.accent }}
-                            thumbColor={colors.surface}
-                            ios_backgroundColor={colors.border}
-                            onValueChange={toggleSwitch}
-                            value={notificationsEnabled}
-                        />
-                    </View>
 
-                    {/* Sync Data */}
-                    <TouchableOpacity style={[styles.settingItem, { borderBottomWidth: 1 }]} onPress={handleSync} disabled={isSyncing}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                            <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
-                                <Ionicons name={isSyncing ? "sync" : "sync-outline"} size={20} color={colors.text} />
-                            </View>
-                            <View>
-                                <Text style={styles.settingLabel}>{isSyncing ? "Syncing..." : "Sync Data"}</Text>
-                                <Text style={[styles.settingLabel, { fontSize: 12, color: colors.textLight, marginTop: 2, fontWeight: 'normal' }]}>
-                                    Last synced: {lastSynced ? new Date(lastSynced).toLocaleString(undefined, {
-                                        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-                                    }) : 'Never'}
-                                </Text>
-                            </View>
-                        </View>
-                        {isSyncing ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="chevron-forward" size={16} color={colors.textLight} />}
+                    {/* Sign out */}
+                    <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.75}>
+                        <Ionicons name="log-out-outline" size={17} color={colors.error} style={{ marginRight: 6 }} />
+                        <Text style={styles.signOutText}>Sign Out</Text>
                     </TouchableOpacity>
 
-                    {/* Privacy Policy */}
-                    <TouchableOpacity style={[styles.settingItem, { borderBottomWidth: 1 }]} onPress={handlePrivacy}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                            <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
-                                <Ionicons name="shield-checkmark-outline" size={20} color={colors.text} />
-                            </View>
-                            <Text style={styles.settingLabel}>Privacy Policy</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
-                    </TouchableOpacity>
-
-                    {/* Export Data */}
-                    <TouchableOpacity style={[styles.settingItem, { borderBottomWidth: 0 }]} onPress={handleExport}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: spacing.m}}>
-                            <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
-                                <Ionicons name="download-outline" size={20} color={colors.text} />
-                            </View>
-                            <Text style={styles.settingLabel}>Export Data</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
-                    </TouchableOpacity>
-
-                </View>
-            </View>
-
-            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-                <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
-
-            <View style={{height: 100}} />
-            </ScrollView>
+                    <View style={{ height: 100 }} />
+                </ScrollView>
             )}
         </ScreenLayout>
     );
 };
 
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        // Background handled by ScreenLayout
-    },
-    fixedHeader: {
-        alignItems: 'center',
-        paddingTop: spacing.m,
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    headerContainer: {
+        paddingTop: spacing.s,
         paddingBottom: spacing.m,
         backgroundColor: colors.surface,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        ...shadows.soft,
+        borderBottomLeftRadius: borderRadius.xl,
+        borderBottomRightRadius: borderRadius.xl,
     },
-    headerTopRow: {
-        width: '100%',
-        paddingHorizontal: spacing.l,
-        marginBottom: spacing.m,
-        alignItems: 'flex-start',
+
+    // ── Profile Row ─────────────────────────────────────────────────────────
+    profileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: layout.screenPadding,
     },
-    backBtn: {
-        padding: 8,
+    avatarWrap: {
+        position: 'relative',
+        marginRight: spacing.m,
+    },
+    proBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: colors.premium,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: colors.surface,
+    },
+
+    // ── Identity ─────────────────────────────────────────────────────────────
+    identityCol: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.s,
     },
     userName: {
-        ...typography.subheader,
-        marginTop: spacing.m,
+        fontSize: 20,
+        fontWeight: '700',
+        color: colors.text,
+        letterSpacing: -0.4,
+    },
+    proTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.premium + '18',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: borderRadius.round,
+        borderWidth: 1,
+        borderColor: colors.premium + '40',
+    },
+    proTagText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: colors.premium,
+        letterSpacing: 0.6,
     },
     userEmail: {
         ...typography.caption,
-        marginTop: 4,
+        marginTop: 2,
     },
-    statsRow: {
-        flexDirection: 'row',
-        width: '100%',
-        paddingHorizontal: spacing.l,
-        paddingTop: spacing.m,
-        marginTop: spacing.m,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
+    ellipsisBtn: {
+        padding: spacing.s,
     },
-    statItem: {
-        flex: 1,
-        alignItems: 'center',
+
+    // ── Scroll content ───────────────────────────────────────────────────────
+    scrollContent: {
+        paddingTop: spacing.l,
+        paddingHorizontal: layout.screenPadding,
     },
-    statValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.text,
-        marginBottom: 4,
-    },
-    statLabel: {
-        fontSize: 12,
-        color: colors.textLight,
-        fontWeight: '600',
-    },
-    statsSubLabel: {
-        fontSize: 10,
-        color: colors.textLight,
-        marginTop: spacing.s,
-        fontStyle: 'italic',
-        opacity: 0.7,
-    },
+
+    // ── Premium card ─────────────────────────────────────────────────────────
     premiumCard: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginHorizontal: spacing.l,
-        backgroundColor: '#FFFBF0', // Soft gold tint
+        backgroundColor: colors.premium + '12',
         borderRadius: borderRadius.l,
         padding: spacing.m,
         marginBottom: spacing.l,
-        marginTop: spacing.l,
         borderWidth: 1,
-        borderColor: colors.premium + '40',
+        borderColor: colors.premium + '35',
+    },
+    premiumLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.m,
     },
     premiumIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 42,
+        height: 42,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.premium,
         justifyContent: 'center',
         alignItems: 'center',
+        ...shadows.soft,
     },
     premiumTitle: {
-        fontWeight: 'bold',
+        fontWeight: '700',
         color: colors.premium,
-        fontSize: 16,
+        fontSize: 15,
+        letterSpacing: -0.2,
     },
     premiumSubtitle: {
         fontSize: 12,
         color: colors.premium,
-        opacity: 0.8,
+        opacity: 0.75,
+        marginTop: 2,
     },
-    section: {
-        paddingHorizontal: spacing.l,
-        marginBottom: spacing.l,
+    premiumChevron: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: colors.premium + '20',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    sectionTitle: {
-        ...typography.bodyBold,
-        marginBottom: spacing.s,
-        color: colors.textLight,
+
+    // ── Settings Grid ─────────────────────────────────────────────────────────
+    settingsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: spacing.m,
     },
-    settingsList: {
+    settingsCardItem: {
+        width: '48%',
         backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
+        borderRadius: borderRadius.lg || 24, // Assuming 24px per specs
+        padding: spacing.m,
+        marginBottom: spacing.m,
         ...shadows.soft,
     },
-    settingItem: {
+    settingTopRow: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
-        padding: spacing.m,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    settingIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: spacing.s,
+    },
+    settingIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: borderRadius.round,
+        backgroundColor: colors.surfaceSoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    settingTextContent: {
+        marginTop: spacing.xs,
     },
     settingLabel: {
-        ...typography.body,
-        fontWeight: '500',
+        ...typography.bodyBold,
+        fontSize: 14,
+        color: colors.textPrimary,
+        marginBottom: 2,
     },
+    settingSub: {
+        ...typography.caption,
+        fontSize: 12,
+        color: colors.textSecondary,
+    },
+    settingRight: {
+        // Keeps switches/chevrons vertically aligned with the icon
+    },
+
+    // ── Sign out ──────────────────────────────────────────────────────────────
     signOutBtn: {
-        marginHorizontal: spacing.l,
-        padding: spacing.m,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.m,
+        marginTop: spacing.xs,
     },
     signOutText: {
         color: colors.error,
-        fontWeight: 'bold',
-    }
+        fontWeight: '600',
+        fontSize: 15,
+    },
 });

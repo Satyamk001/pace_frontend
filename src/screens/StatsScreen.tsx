@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
@@ -8,8 +8,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { StatsContentSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
-
-const screenWidth = Dimensions.get('window').width;
+import { useSubscription } from '../context/SubscriptionContext';
+import { useOffline } from '../context/OfflineContext';
+import { BackButton } from '../components/ui/BackButton';
 
 const RANGE_OPTIONS = [
     { label: '7D', value: '7' },
@@ -18,450 +19,427 @@ const RANGE_OPTIONS = [
     { label: '1Y', value: '365' },
 ];
 
-
 export const StatsScreen = ({ navigation }: any) => {
-  const { getToken } = useAuth();
-  const api = createApiService(getToken);
-  
-  // Data State
-  const [graphData, setGraphData] = useState<any>(null);
-  const [summaryData, setSummaryData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+    const { getToken } = useAuth();
+    const api = createApiService(getToken);
+    const { isProUser } = useSubscription();
+    const { isOffline } = useOffline();
 
-  const [isStatsLoading, setIsStatsLoading] = useState(false);
+    const [graphData, setGraphData] = useState<any>(null);
+    const [summaryData, setSummaryData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [isStatsLoading, setIsStatsLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [selectedRange, setSelectedRange] = useState('30');
+    const [monthOffset, setMonthOffset] = useState(0);
 
-  const [refreshing, setRefreshing] = useState(false);
-  
-  // Filter State
-  const [selectedRange, setSelectedRange] = useState('30');
-  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Navigation Logic
-  const goToPrevMonth = () => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setCurrentDate(newDate);
-  };
+    const fetchGraphStats = async () => {
+        try {
+            const data = await api.getStats('365');
+            setGraphData(data);
+        } catch (e) {
+            console.error('Failed to fetch graph stats:', e);
+        }
+    };
 
-  const goToNextMonth = () => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    // Prevent future navigation check
-    const today = new Date();
-    if (newDate > today) return; 
-    
-    setCurrentDate(newDate);
-  };
+    const fetchSummaryStats = async () => {
+        setIsStatsLoading(true);
+        try {
+            const data = await api.getStats(selectedRange);
+            setSummaryData(data);
+        } catch (e) {
+            console.error('Failed to fetch summary stats:', e);
+        } finally {
+            setIsStatsLoading(false);
+        }
+    };
 
-  const canGoNext = (() => {
-      const today = new Date();
-      const testDate = new Date(currentDate);
-      testDate.setMonth(testDate.getMonth() + 1);
-      return testDate <= today || (today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear()); 
-      // Actually strictly: disable if current view IS current month
-      return !(currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear());
-  })();
+    const loadAll = async () => {
+        if (!graphData) setLoading(true);
+        await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
+        setLoading(false);
+    };
 
-  // 1. Fetch Graph Data (Always 1 Year to support Month Nav)
-  // We fetch 365 days to allow local filtering by month without re-fetching
-  const fetchGraphStats = async () => {
-    try {
-      const data = await api.getStats('365');
-      setGraphData(data);
-    } catch (e) {
-      console.error('Failed to fetch graph stats:', e);
-    }
-  };
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
+        setRefreshing(false);
+    }, [selectedRange]);
 
-  // 2. Fetch Summary Data (Based on Selected Range)
-  const fetchSummaryStats = async () => {
-      setIsStatsLoading(true);
-      try {
-          const data = await api.getStats(selectedRange);
-          setSummaryData(data);
-      } catch (e) {
-          console.error('Failed to fetch summary stats:', e);
-      } finally {
-          setIsStatsLoading(false);
-      }
-  };
+    useFocusEffect(useCallback(() => { loadAll(); }, []));
 
-  // Combined Load
-  const loadAll = async () => {
-      setLoading(true);
-      await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
-      setLoading(false);
-  };
+    useEffect(() => { fetchSummaryStats(); }, [selectedRange]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchGraphStats(), fetchSummaryStats()]);
-    setRefreshing(false);
-  }, [selectedRange, currentDate]);
+    const chartData = useMemo(() => {
+        if (!graphData?.history?.health) return [];
+        const healthData = graphData.history.health;
+        
+        const targetDate = new Date();
+        targetDate.setMonth(targetDate.getMonth() - monthOffset);
+        
+        const targetYear = targetDate.getFullYear();
+        const targetMonth = targetDate.getMonth();
+        const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
 
-  // Initial Load
-  useFocusEffect(
-    useCallback(() => {
-      loadAll();
-    }, [])
-  );
+        // Generate array of days for the target month
+        const result = Array.from({ length: daysInMonth }, (_, i) => {
+            const dayNum = i + 1;
+            
+            const log = healthData.find((h: any) => {
+                const hd = new Date(h.date);
+                return hd.getDate() === dayNum && hd.getMonth() === targetMonth && hd.getFullYear() === targetYear;
+            });
 
-  // Update Summary when Range Changes
-  useEffect(() => {
-      fetchSummaryStats();
-  }, [selectedRange]);
+            return {
+                day: String(dayNum),
+                pain: log?.pain_level ?? 0,
+                fatigue: log?.fatigue_level ?? 0,
+                hasData: !!log,
+                isToday: monthOffset === 0 && dayNum === new Date().getDate()
+            };
+        });
 
-  const getChartData = () => {
-      if (!graphData?.history?.health) return [];
-      
-      const healthData = graphData.history.health;
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
+        return result;
+    }, [graphData, monthOffset]);
 
-      // Find logs for this specific month
-      const logsInMonth = healthData.filter((h: any) => {
-          const logDate = new Date(h.date);
-          return logDate.getMonth() === month && logDate.getFullYear() === year;
-      });
+    const hasData = chartData.some(d => d.hasData);
+    const summary = summaryData?.summary || {};
 
-      // Get days in month
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-      return Array.from({ length: daysInMonth }, (_, i) => {
-          const day = i + 1;
-          const log = logsInMonth.find((h: any) => new Date(h.date).getDate() === day);
-          const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-
-          return {
-              day: day, 
-              pain: log?.pain_level ?? 0,
-              fatigue: log?.fatigue_level ?? 0,
-              hasData: !!log,
-              isToday: isToday
-          };
-      });
-  };
-
-  const chartData = getChartData();
-  const hasData = chartData.some(d => d.hasData);
-  const summary = summaryData?.summary || {};
-
-  return (
-    <ScreenLayout edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: spacing.md }}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Insights</Text>
-      </View>
-
-      <View style={styles.rangeSelector}>
-          {RANGE_OPTIONS.map((opt) => (
-              <TouchableOpacity 
-                key={opt.value} 
-                style={[styles.rangeBtn, selectedRange === opt.value && styles.rangeBtnActive]}
-                onPress={() => setSelectedRange(opt.value)}
-              >
-                  <Text style={[styles.rangeText, selectedRange === opt.value && styles.rangeTextActive]}>
-                      {opt.label}
-                  </Text>
-              </TouchableOpacity>
-          ))}
-      </View>
-
-      {loading ? (
-        <StatsContentSkeleton />
-      ) : (
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-                <>
-                    <View style={styles.statsRow}>
-                        <View style={styles.statsItem}>
-                            {isStatsLoading ? (
-                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
-                            ) : (
-                                <Text style={styles.statsValue}>{summary.totalTasks || 0}</Text>
-                            )}
-                            <Text style={styles.statsLabel}>Tasks Done</Text>
-                        </View>
-                        <View style={styles.statsItem}>
-                            {isStatsLoading ? (
-                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
-                            ) : (
-                                <Text style={styles.statsValue}>{summary.streak || 0}🔥</Text>
-                            )}
-                            <Text style={styles.statsLabel}>Streak</Text>
-                        </View>
-                    </View>
-                    <View style={styles.statsDivider} />
-                    <View style={styles.statsRow}>
-                        <View style={styles.statsItem}>
-                            {isStatsLoading ? (
-                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
-                            ) : (
-                                <Text style={[styles.statsValue, {color: colors.accent}]}>{summary.calmDays || 0}</Text>
-                            )}
-                            <Text style={styles.statsLabel}>Calm Days</Text>
-                        </View>
-                        <View style={styles.statsItem}>
-                            {isStatsLoading ? (
-                                <SkeletonBox width={40} height={32} borderRadius={8} style={{ marginBottom: 4 }} />
-                            ) : (
-                                <Text style={[styles.statsValue, {color: colors.error}]}>{summary.painDays || 0}</Text>
-                            )}
-                            <Text style={styles.statsLabel}>Pain Days</Text>
-                        </View>
-                    </View>
-                </>
-
-        </View>
-
-                {/* Journal Bar Chart */}
-            <View style={styles.chartCard}>
-                
-                {/* Chart Header - Month Navigation */}
-                <View style={styles.chartHeader}>
-                    <View>
-                        <Text style={styles.chartTitle}>Health Trends</Text>
-                        <Text style={styles.chartSubtitle}>
-                            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </Text>
-                    </View>
-                    <View style={styles.monthNav}>
-                        <TouchableOpacity 
-                            onPress={goToPrevMonth}
-                            style={styles.navBtn}
-                        >
-                            <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            onPress={goToNextMonth}
-                            disabled={!canGoNext}
-                            style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
-                        >
-                            <Ionicons name="chevron-forward" size={20} color={!canGoNext ? colors.border : colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                
-                {/* Chart Content */}
-                {hasData ? (
-                    <View style={styles.chartContainer}>
-                        <HealthTrendsChart data={chartData} />
-                    </View>
+    const StatCard = ({ label, value, icon, color, suffix = "" }: any) => (
+        <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: color + '15' }]}>
+                <Ionicons name={icon} size={18} color={color} />
+            </View>
+            <View>
+                {isStatsLoading ? (
+                    <SkeletonBox width={40} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
                 ) : (
-                    <View style={styles.noDataChart}>
-                        <Ionicons name="journal-outline" size={32} color={colors.textLight} />
-                        <Text style={styles.noDataText}>No Data</Text>
-                        <Text style={styles.noDataHint}>
-                            No logs found for this period.
-                        </Text>
-                    </View>
+                    <Text style={styles.statValue}>{value}{suffix}</Text>
                 )}
+                <Text style={styles.statLabel}>{label}</Text>
+            </View>
+        </View>
+    );
+
+    return (
+        <ScreenLayout edges={['top']} useGradient>
+            <View style={styles.header}>
+                <BackButton style={styles.backBtn} />
+                <Text style={styles.headerTitle}>Insights</Text>
             </View>
 
-        {/* Premium Upgrade */}
-        <TouchableOpacity 
-            style={styles.premiumCard}
-            onPress={() => navigation.navigate('Premium')}
-        >
-            <View style={{flex: 1}}>
-                <Text style={styles.premiumTitle}>Unlock Advanced Analysis</Text>
-                <Text style={styles.premiumSubtitle}>Identify triggers, correlations & more.</Text>
+            <View style={styles.rangeContainer}>
+                <View style={styles.rangeSelector}>
+                    {RANGE_OPTIONS.map((opt) => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            style={[styles.rangeBtn, selectedRange === opt.value && styles.rangeBtnActive]}
+                            onPress={() => setSelectedRange(opt.value)}
+                        >
+                            <Text style={[styles.rangeText, selectedRange === opt.value && styles.rangeTextActive]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
-            <View style={styles.premiumIcon}>
-                <Ionicons name="lock-closed" size={20} color={colors.premium} />
-            </View>
-        </TouchableOpacity>
 
-        <View style={{height: 100}} />
-      </ScrollView>
-      )}
+            {loading ? (
+                <StatsContentSkeleton />
+            ) : (
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Primary Stats Grid */}
+                    <View style={styles.statsGrid}>
+                        <StatCard label="Tasks Done" value={summary.totalTasks || 0} icon="checkmark-circle" color={colors.accent} />
+                        <StatCard label="Current Streak" value={summary.streak || 0} icon="flame" color={colors.accent} suffix="d" />
+                        <StatCard label="Calm Days" value={summary.calmDays || 0} icon="leaf" color={colors.accent} />
+                        <StatCard label="Pain Days" value={summary.painDays || 0} icon="alert-circle" color={colors.accent} />
+                    </View>
 
-      
-    </ScreenLayout>
-  );
+                    {/* Offline Lock Boundary Overlay */}
+                    {isOffline && parseInt(selectedRange) > 7 ? (
+                        <View style={{ marginTop: 20 }}>
+                            <View style={styles.emptyIconCircle}>
+                                <Ionicons name="cloud-offline-outline" size={32} color={colors.warning} />
+                            </View>
+                            <Text style={styles.noDataText}>Offline Cache Limit</Text>
+                            <Text style={styles.noDataHint}>Connect to the internet to query extended history.</Text>
+                        </View>
+                    ) : (
+                        <>
+                    <View style={styles.chartCard}>
+                        <View style={styles.chartHeader}>
+                            <View>
+                                <Text style={styles.chartTitle}>Health Trends</Text>
+                                <Text style={styles.chartSubtitle}>
+                                    {(() => {
+                                        const d = new Date();
+                                        d.setMonth(d.getMonth() - monthOffset);
+                                        return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                                    })()}
+                                </Text>
+                            </View>
+                            <View style={styles.navArrows}>
+                                <TouchableOpacity 
+                                    onPress={() => setMonthOffset(m => m + 1)} 
+                                    style={styles.arrowBtn}
+                                >
+                                    <Ionicons name="chevron-back" size={24} color={colors.accentDark} />
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    onPress={() => setMonthOffset(m => Math.max(0, m - 1))} 
+                                    style={[styles.arrowBtn, monthOffset === 0 && { opacity: 0.3 }]}
+                                    disabled={monthOffset === 0}
+                                >
+                                    <Ionicons name="chevron-forward" size={24} color={colors.accentDark} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {hasData ? (
+                            <View style={styles.chartContainer}>
+                                <HealthTrendsChart data={chartData} />
+                            </View>
+                        ) : (
+                            <View style={styles.noDataChart}>
+                                <View style={styles.emptyIconCircle}>
+                                    <Ionicons name="analytics-outline" size={32} color={colors.border} />
+                                </View>
+                                <Text style={styles.noDataText}>No records found</Text>
+                                <Text style={styles.noDataHint}>Log your vitals to see trends here.</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Premium Upgrade */}
+                    {!isProUser && (
+                        <TouchableOpacity
+                            style={styles.premiumCard}
+                            onPress={() => navigation.navigate('Premium')}
+                            activeOpacity={0.9}
+                        >
+                            <View style={styles.premiumContent}>
+                                <Text style={styles.premiumTitle}>Unlock Deep Insights</Text>
+                                <Text style={styles.premiumSubtitle}>Find patterns between sleep, activity, and pain.</Text>
+                            </View>
+                            <View style={styles.premiumBadge}>
+                                <Ionicons name="sparkles" size={16} color={colors.surface} />
+                                <Text style={styles.premiumBtnText}>Pro</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                    </>
+                    )}
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            )}
+        </ScreenLayout>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // Background and safe area handled by ScreenLayout
-  },
-  header: {
-      paddingHorizontal: spacing.l,
-      marginBottom: spacing.m,
-      paddingTop: spacing.m,
-      flexDirection: 'row',
-      alignItems: 'center',
-  },
-  headerTitle: {
-      ...typography.header,
-      color: colors.text,
-  },
-  monthNav: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-  },
-  navBtn: {
-      padding: 8,
-      backgroundColor: colors.l2,
-      borderRadius: borderRadius.s,
-      ...shadows.level1,
-  },
-  navBtnDisabled: {
-      opacity: 0.3,
-      ...shadows.soft, // flatter
-  },
-  content: {
-      paddingHorizontal: spacing.l,
-      paddingBottom: 100,
-  },
-  chartCard: {
-      backgroundColor: colors.l1,
-      borderRadius: borderRadius.l,
-      padding: spacing.m, 
-      marginBottom: spacing.m,
-      ...shadows.level1,
-      borderWidth: 1,
-      borderColor: colors.border + '30', 
-  },
-  chartHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.s,
-      paddingHorizontal: spacing.xs
-  },
-  chartTitle: {
-      ...typography.bodyBold,
-      color: colors.text,
-      fontSize: 15,
-  },
-  chartSubtitle: {
-      ...typography.caption,
-      color: colors.textSecondary,
-      marginTop: 2,
-      fontWeight: '600'
-  },
-  chartContainer: {
-     alignItems: 'center',
-     justifyContent: 'center',
-     overflow: 'hidden',
-  },
-  noDataChart: {
-      height: 180,
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 8,
-      opacity: 0.6
-  },
-  noDataText: {
-      color: colors.textSecondary,
-      fontWeight: '600'
-  },
-  noDataHint: {
-      ...typography.caption,
-      color: colors.textLight,
-  },
-  statsGrid: {
-      flexDirection: 'column',
-      backgroundColor: colors.l1,
-      borderRadius: borderRadius.l,
-      padding: spacing.m,
-      marginBottom: spacing.l,
-      ...shadows.level1,
-  },
-  statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-  },
-  statsDivider: {
-      height: 1,
-      backgroundColor: colors.border,
-      opacity: 0.1,
-      marginVertical: spacing.m,
-  },
-  statsItem: {
-      alignItems: 'center',
-      flex: 1,
-  },
-  statsValue: {
-      ...typography.header,
-      fontSize: 24,
-      color: colors.text,
-      marginBottom: 4
-  },
-  statsLabel: {
-      ...typography.caption,
-      color: colors.textSecondary,
-      fontWeight: '600'
-  },
-  premiumCard: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      backgroundColor: colors.l2,
-      padding: spacing.l,
-      borderRadius: borderRadius.l,
-      marginTop: spacing.s,
-      borderWidth: 1,
-      borderColor: colors.premium + '40',
-      borderStyle: 'dashed'
-  },
-  premiumTitle: {
-      fontWeight: 'bold',
-      color: colors.premium,
-      fontSize: 15
-  },
-  premiumSubtitle: {
-      ...typography.caption,
-      color: colors.premium,
-      opacity: 0.8,
-      marginTop: 2
-  },
-  premiumIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: colors.premium + '20',
-      alignItems: 'center',
-      justifyContent: 'center'
-  },
-  // Styles
-  rangeSelector: {
-      flexDirection: 'row',
-      backgroundColor: colors.l1, 
-      borderRadius: borderRadius.m,
-      padding: 4,
-      marginHorizontal: spacing.l,
-      marginBottom: spacing.l,
-  },
-  rangeBtn: {
-      flex: 1,
-      paddingVertical: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: borderRadius.s,
-  },
-  rangeBtnActive: {
-      backgroundColor: colors.l0, 
-      ...shadows.level1,
-  },
-  rangeText: {
-      ...typography.caption,
-      fontWeight: '600',
-      color: colors.textSecondary,
-  },
-  rangeTextActive: {
-      color: colors.primary, 
-      fontWeight: '700',
-  },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.l,
+        paddingTop: spacing.m,
+        paddingBottom: spacing.s,
+    },
+    backBtn: {
+        marginRight: spacing.s,
+    },
+    headerTitle: {
+        ...typography.h2,
+        fontSize: 24,
+        color: colors.text,
+    },
+    rangeContainer: {
+        paddingHorizontal: spacing.l,
+        marginBottom: spacing.l,
+    },
+    rangeSelector: {
+        flexDirection: 'row',
+        backgroundColor: colors.surfaceSoft,
+        borderRadius: borderRadius.m,
+        padding: 4,
+    },
+    rangeBtn: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: borderRadius.s,
+    },
+    rangeBtnActive: {
+        backgroundColor: colors.surface,
+        ...shadows.soft,
+    },
+    rangeText: {
+        ...typography.caption,
+        fontWeight: '600',
+        color: colors.textSecondary,
+    },
+    rangeTextActive: {
+        color: colors.accent,
+        fontWeight: '700',
+    },
+    scrollContent: {
+        paddingHorizontal: spacing.l,
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: spacing.m,
+    },
+    statCard: {
+        width: '48%',
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.l,
+        padding: spacing.m,
+        marginBottom: spacing.m,
+        flexDirection: 'row',
+        alignItems: 'center',
+        ...shadows.soft,
+        borderWidth: 1,
+        borderColor: colors.border + '20',
+    },
+    statIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    statValue: {
+        ...typography.h3,
+        fontSize: 18,
+        color: colors.text,
+    },
+    statLabel: {
+        ...typography.caption,
+        fontSize: 11,
+        color: colors.textSecondary,
+    },
+    chartCard: {
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.l,
+        padding: spacing.m,
+        marginBottom: spacing.l,
+        ...shadows.soft,
+        borderWidth: 1,
+        borderColor: colors.border + '20',
+    },
+    chartHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: spacing.l,
+    },
+    chartTitle: {
+        ...typography.bodyBold,
+        fontSize: 16,
+        color: colors.text,
+    },
+    chartSubtitle: {
+        ...typography.caption,
+        color: colors.textSecondary,
+        fontWeight: '600',
+    },
+    navArrows: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.s,
+    },
+    arrowBtn: {
+        padding: spacing.xs,
+        // backgroundColor: colors.surface,
+        // borderRadius: borderRadius.round,
+        borderRadius: 10,
+        backgroundColor: colors.accentSoft,
+        color: colors.accent ,
+        ...shadows.soft,
+    },
+    monthNav: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    navBtn: {
+        padding: 6,
+        backgroundColor: colors.surfaceSoft,
+        borderRadius: 8,
+    },
+    navBtnDisabled: {
+        opacity: 0.3,
+    },
+    chartContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingBottom: spacing.s,
+    },
+    noDataChart: {
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyIconCircle: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: colors.surfaceSoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.s,
+    },
+    noDataText: {
+        ...typography.bodyBold,
+        color: colors.textSecondary,
+    },
+    noDataHint: {
+        ...typography.caption,
+        color: colors.textLight,
+    },
+    premiumCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.text, // Dark mode aesthetic for premium
+        padding: spacing.l,
+        borderRadius: borderRadius.l,
+        ...shadows.medium,
+    },
+    premiumContent: {
+        flex: 1,
+    },
+    premiumTitle: {
+        ...typography.bodyBold,
+        color: colors.surface,
+        fontSize: 16,
+    },
+    premiumSubtitle: {
+        ...typography.caption,
+        color: colors.surface,
+        opacity: 0.7,
+        marginTop: 2,
+    },
+    premiumBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.accent,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 4,
+    },
+    premiumBtnText: {
+        color: colors.surface,
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
 });

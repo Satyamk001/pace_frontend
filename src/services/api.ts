@@ -39,44 +39,93 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     }
   };
 
-  const fetchWithCache = async (url: string) => {
-      // 1. Check Memory Cache
-      const cached = getCached(url);
-      if (cached) return cached;
+  const fetchWithDynamicCache = async (url: string, localReadFn: () => Promise<any>, localWriteFn: (data: any) => Promise<void>) => {
+      // 1. Read local data for instantly returning
+      let localData = await localReadFn();
+      const isLocalEmpty = !localData || (Array.isArray(localData) && localData.length === 0) || (typeof localData === 'object' && Object.keys(localData).length === 0);
 
-      // 2. Check In-Flight Requests (Deduplication)
-      if (inFlightRequests.has(url)) {
-          return inFlightRequests.get(url);
+      // 2. Check if we need to fetch from network (not in flight, TTL expired, OR local DB is completely empty)
+      const isCacheValid = getCached(url) !== null;
+      let requestPromise = inFlightRequests.get(url);
+      
+      if (!requestPromise && (!isCacheValid || isLocalEmpty)) {
+          requestPromise = (async () => {
+              try {
+                  const headers = await getHeaders();
+                  const res = await fetch(url, { headers });
+                  if (res.ok) {
+                      const data = await res.json();
+                      await localWriteFn(data);
+                      setCache(url, true); // Mark TTL as recently fetched to stop spamming
+                      return data;
+                  }
+              } catch(e) {
+                  console.log(`[Sync] Background fetch failed for ${url}`);
+              } finally {
+                  inFlightRequests.delete(url);
+              }
+              return null;
+          })();
+          inFlightRequests.set(url, requestPromise);
       }
 
-      // 3. Make Request
-      const requestPromise = (async () => {
-          try {
-              const headers = await getHeaders();
-              const res = await fetch(url, { headers });
-              if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-              const data = await res.json();
-              setCache(url, data);
-              return data;
-          } finally {
-              inFlightRequests.delete(url);
-          }
-      })();
+      // 3. If local is empty, we must await the network
+      if (isLocalEmpty && requestPromise) {
+          const networkData = await requestPromise;
+          if (networkData) return networkData;
+          return Array.isArray(localData) ? [] : {};
+      }
 
-      inFlightRequests.set(url, requestPromise);
-      return requestPromise;
+      // 4. Otherwise, return local data instantly (0s UI loading)
+      // The background sync will run silently and update the DB if TTL expired.
+      return localData;
   };
 
   return {
     getTodos: async (date?: string, status?: 'active' | 'completed') => {
-      // Offline-first read: Return straight from StorageService
-      const allTodos = await StorageService.getItem('offline_todos') || [];
+      const allTodos = await fetchWithDynamicCache(
+          `${BACKEND_URL}/todos`,
+          async () => { return await StorageService.getItem('offline_todos') || []; },
+          async (data: any) => { await StorageService.setItem('offline_todos', data); }
+      );
       
-      let filtered = [...allTodos];
-      if (date) {
+      let filtered = [...(allTodos || [])];
+      if (date && date.includes('-')) {
+        const [year, month, day] = date.split('-');
+        const queryDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        queryDate.setHours(0, 0, 0, 0);
+
         filtered = filtered.filter((t: any) => {
-            if (t.due_date && t.due_date.startsWith(date)) return true;
-            if (t.completed_at && t.completed_at.startsWith(date)) return true;
+            // Evaluator Helper
+            const isSameLocalDay = (serverUtcStr: string) => {
+                if (!serverUtcStr) return false;
+                const d = new Date(serverUtcStr);
+                return d.getFullYear() === queryDate.getFullYear() && 
+                       d.getMonth() === queryDate.getMonth() && 
+                       d.getDate() === queryDate.getDate();
+            };
+
+            // 1. Exact strict match strictly in Local Time
+            if (isSameLocalDay(t.due_date) || isSameLocalDay(t.completed_at)) {
+                return true;
+            }
+
+            // 2. Evaluate Repeat Logic for past dates pushing to future
+            if (t.repeat_type && t.repeat_type !== 'NONE' && t.due_date) {
+                const dueDate = new Date(t.due_date);
+                dueDate.setHours(0, 0, 0, 0);
+
+                // Only repeat if the query date is ON or AFTER the task's originating due date
+                if (queryDate >= dueDate) {
+                    if (t.repeat_type === 'DAILY') {
+                        return true;
+                    }
+                    if (t.repeat_type === 'WEEKLY') {
+                        // Check if the weekday matches
+                        return queryDate.getDay() === dueDate.getDay();
+                    }
+                }
+            }
             return false;
         });
       }
@@ -99,15 +148,15 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       return filtered;
     },
 
-    createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string, feedback?: string) => {
+    createTodo: async (title: string, energyLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM', dueDate?: string, feedback?: string, repeatType?: string) => {
       // 1. Mutate locally and generate temp ID
-      const newTodo = await StorageService.addTodo({ title, energy_level: energyLevel, due_date: dueDate, feedback });
+      const newTodo = await StorageService.addTodo({ title, energy_level: energyLevel, due_date: dueDate, feedback, repeat_type: repeatType });
       
       // 2. Queue background sync
       await OfflineSyncService.queueRequest(
           `${BACKEND_URL}/todos`, 
           'POST', 
-          { title, energyLevel, dueDate, feedback },
+          { title, energyLevel, dueDate, feedback, repeatType },
           newTodo.id // Pass temp ID for Server Reconciliation later
       );
       
@@ -154,7 +203,13 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     },
 
     getDailyLog: async (date: string) => {
-      return await StorageService.getDailyLog(date);
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/daily-logs?date=${date}`,
+            async () => { return await StorageService.getDailyLog(date); },
+            async (data: any) => { 
+                if (data && data.date) await StorageService.updateDailyLog(data); 
+            }
+        );
     },
 
     logDay: async (date: string, dayType?: 'NORMAL' | 'FLARE_UP' | 'LOW_ENERGY', mood?: string) => {
@@ -165,16 +220,30 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
 
     getStats: async (range: string = '7') => {
         const url = `${BACKEND_URL}/reports/stats?range=${range}`;
-        return fetchWithCache(url);
+        return await fetchWithDynamicCache(
+            url,
+            async () => { return await StorageService.getItem(`offline_stats_${range}`) || null; },
+            async (data: any) => { await StorageService.setItem(`offline_stats_${range}`, data); }
+        );
     },
 
     getCalendarData: async () => {
         const url = `${BACKEND_URL}/reports/calendar`;
-        return fetchWithCache(url);
+        return await fetchWithDynamicCache(
+            url,
+            async () => { return await StorageService.getItem('offline_calendar') || {}; },
+            async (data: any) => { await StorageService.syncCalendar(data); }
+        );
     },
 
     getHealthMetrics: async (date: string) => {
-        return await StorageService.getHealthMetrics(date);
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/health-metrics?date=${date}`,
+            async () => { return await StorageService.getHealthMetrics(date); },
+            async (data: any) => { 
+                if (data && data.date) await StorageService.updateHealthMetrics(data); 
+            }
+        );
     },
 
     logHealthMetrics: async (data: { date: string, painLevel: number, fatigueLevel: number, mood: string, notes?: string }) => {
@@ -191,20 +260,21 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
 
     // --- FOOD API ---
     logFood: async (data: { date: string, name: string, quantity?: string, calories: number, time?: string, notes?: string }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/food`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to log food');
-        invalidateCache('/food');
-        return res.json();
+        const tempId = `temp_${Date.now()}`;
+        const newLog = { id: tempId, ...data };
+        const existingLogs = await StorageService.getDailyFoodLogs(data.date) || [];
+        await StorageService.updateDailyFoodLogs(data.date, [...existingLogs, newLog]);
+
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/food`, 'POST', data, tempId);
+        return newLog;
     },
 
     getDailyFoodLog: async (date: string) => {
-        const url = `${BACKEND_URL}/health-metrics/food/daily?date=${date}`;
-        return fetchWithCache(url);
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/health-metrics/food/daily?date=${date}`,
+            async () => { return await StorageService.getDailyFoodLogs(date); },
+            async (data: any) => { await StorageService.updateDailyFoodLogs(date, data); }
+        );
     },
 
     // --- MEDICINE API ---
@@ -242,62 +312,59 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     },
 
     getMedicines: async () => {
-        return await StorageService.getItem('offline_medicines') || [];
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/health-metrics/medicines`,
+            async () => { return await StorageService.getItem('offline_medicines') || []; },
+            async (data: any) => { await StorageService.syncMedicines(data); }
+        );
     },
 
     logMedicineIntake: async (data: { medicineId: string, date: string, time: string, status: 'TAKEN' | 'SKIPPED' }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/intake`, {
-             method: 'POST',
-             headers,
-             body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to log intake');
-        invalidateCache('/medicines');
-        return res.json();
+        const existingIntakes = await StorageService.getMedicineIntakes(data.date) || [];
+        const newIntake = { id: `temp_${Date.now()}`, medicine_id: data.medicineId, time: data.time, status: data.status, date: data.date };
+        await StorageService.updateMedicineIntakes(data.date, [...existingIntakes, newIntake]);
+
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/medicines/intake`, 'POST', data, newIntake.id);
+        return newIntake;
     },
 
     deleteMedicineIntake: async (data: { medicineId: string, date: string, time: string }) => {
-        const headers = await getHeaders();
-        // Use query parameters for DELETE requests
-        const params = new URLSearchParams({
-            medicineId: data.medicineId,
-            date: data.date,
-            time: data.time
-        }).toString();
-        
-        const res = await fetch(`${BACKEND_URL}/health-metrics/medicines/intake?${params}`, {
-             method: 'DELETE',
-             headers,
-        });
-        if (!res.ok) throw new Error('Failed to delete intake');
-        invalidateCache('/medicines');
-        return res.json();
+        const existingIntakes = await StorageService.getMedicineIntakes(data.date) || [];
+        const filtered = existingIntakes.filter((i: any) => !(i.medicine_id === data.medicineId && i.time.slice(0,5) === data.time.slice(0,5)));
+        await StorageService.updateMedicineIntakes(data.date, filtered);
+
+        const params = new URLSearchParams(data).toString();
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/medicines/intake?${params}`, 'DELETE');
+        return { message: 'Deleted intake locally' };
     },
 
     getIntakeHistory: async (date: string) => {
-         const url = `${BACKEND_URL}/health-metrics/medicines/intake/history?date=${date}`;
-         return fetchWithCache(url);
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/health-metrics/medicines/intake/history?date=${date}`,
+            async () => { return await StorageService.getMedicineIntakes(date); },
+            async (data: any) => { await StorageService.updateMedicineIntakes(date, data); }
+        );
     },
 
     // --- WEIGHT API ---
     logWeight: async (data: { date: string, weight: number }) => {
-        const headers = await getHeaders();
-        const res = await fetch(`${BACKEND_URL}/health-metrics/weight`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to log weight');
-        invalidateCache('/weight');
-        invalidateCache('/reports');
-        return res.json();
+        const tempId = `temp_${Date.now()}`;
+        const newWeight = { id: tempId, ...data };
+        await StorageService.updateWeightHistory([newWeight]);
+        
+        await OfflineSyncService.queueRequest(`${BACKEND_URL}/health-metrics/weight`, 'POST', data, tempId);
+        return newWeight;
     },
 
     getWeightHistory: async (startDate: string, endDate: string) => {
-        const url = `${BACKEND_URL}/health-metrics/weight/history?startDate=${startDate}&endDate=${endDate}`;
-        return fetchWithCache(url);
+        return await fetchWithDynamicCache(
+            `${BACKEND_URL}/health-metrics/weight/history?startDate=${startDate}&endDate=${endDate}`,
+            async () => { return await StorageService.getWeightHistory(startDate, endDate); },
+            async (data: any) => { await StorageService.updateWeightHistory(data?.history || data); }
+        );
     },
+
+
 
     createOrder: async (amount: number) => {
         const headers = await getHeaders();

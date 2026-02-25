@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { useOffline } from '../context/OfflineContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { NotificationService } from '../services/NotificationService';
+import { BackButton } from '../components/ui/BackButton';
 
 export const MedicineScreen = () => {
     const navigation = useNavigation();
@@ -83,21 +84,12 @@ export const MedicineScreen = () => {
         };
 
         try {
-            if (isOffline) {
-                if (isTaken) {
-                     showDialog('Offline', 'Untaking unavailable offline yet.');
-                } else {
-                    await api.logMedicineIntake(payload as any);
-                    showDialog('Offline', 'Marked as taken locally.');
-                }
+            if (isTaken) {
+                await api.deleteMedicineIntake({ medicineId, date: today, time });
             } else {
-                if (isTaken) {
-                    await api.deleteMedicineIntake({ medicineId, date: today, time });
-                } else {
-                    await api.logMedicineIntake(payload as any);
-                }
-                loadData(); 
+                await api.logMedicineIntake(payload as any);
             }
+            loadData(); 
         } catch (error) {
              showDialog('Error', 'Failed to update status');
         }
@@ -120,13 +112,13 @@ export const MedicineScreen = () => {
                 style: 'destructive',
                 onPress: async () => {
                     try {
-                        if (isOffline) {
-                             showDialog('Offline', 'Cannot delete while offline.');
-                        } else {
-                            await api.deleteMedicine(id);
-                            loadData();
-                            setDialogVisible(false);
-                        }
+                        await api.deleteMedicine(id);
+                        
+                        // Force a full reschedule to wipe out any orphaned background alarms for the deleted med
+                        await NotificationService.rescheduleAll();
+                        
+                        loadData();
+                        setDialogVisible(false);
                     } catch (error) {
                          showDialog('Error', 'Failed to delete');
                     }
@@ -149,28 +141,16 @@ export const MedicineScreen = () => {
         };
 
         try {
-            if (isOffline) {
-                if (editingId) {
-                     showDialog('Offline', 'Editing not supported offline yet.');
-                } else {
-                    await api.addMedicine(newMed);
-                    showDialog('Offline', 'Medicine saved locally.');
-                    resetForm();
-                }
+            if (editingId) {
+                const updatedMed = await api.updateMedicine(editingId, newMed);
+                await NotificationService.scheduleMedicine(updatedMed || { id: editingId, ...newMed });
             } else {
-                if (editingId) {
-                    const updatedMed = await api.updateMedicine(editingId, newMed);
-                    // For now, to keep it simple, we just schedule the updated ones.
-                    // A full reschedule might require fetching all again.
-                    await NotificationService.scheduleMedicine(updatedMed || { id: editingId, ...newMed });
-                } else {
-                    const savedMed = await api.addMedicine(newMed);
-                    await NotificationService.scheduleMedicine(savedMed || newMed);
-                }
-                
-                await loadData();
-                resetForm();
+                const savedMed = await api.addMedicine(newMed);
+                await NotificationService.scheduleMedicine(savedMed || newMed);
             }
+            
+            await loadData();
+            resetForm();
         } catch (error: any) {
             showDialog('Error', `Failed to save: ${error.message || 'Unknown error'}`);
         }
@@ -187,13 +167,16 @@ export const MedicineScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
+                <BackButton style={styles.backButton} />
                 <Text style={styles.title}>Medicine Schedule</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+            >
+                <ScrollView contentContainerStyle={styles.content}>
                 
                 {/* Add New Button */}
                 {!showForm && (
@@ -305,6 +288,7 @@ export const MedicineScreen = () => {
                 ))}
 
             </ScrollView>
+            </KeyboardAvoidingView>
             
             <CustomDialog 
                 visible={dialogVisible}

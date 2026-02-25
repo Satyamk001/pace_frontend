@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 20,
-        // Removed background and shadow for a cleaner look
+        backgroundColor: colors.surface,
+        ...shadows.soft,
     }
 });

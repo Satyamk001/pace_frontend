@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { useOffline } from '../context/OfflineContext';
+import { BackButton } from '../components/ui/BackButton';
 
 export const FoodScreen = () => {
     const navigation = useNavigation();
@@ -67,9 +68,7 @@ export const FoodScreen = () => {
 
         try {
             await api.logFood(newLog);
-            if (!isOffline) {
-                fetchLogs(); // Refresh to get real ID if online
-            }
+            fetchLogs(); 
         } catch (error) {
             console.error('Failed to log food', error);
             Alert.alert('Error', 'Failed to save food log');
@@ -81,15 +80,19 @@ export const FoodScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
-                </TouchableOpacity>
+                <BackButton style={styles.backButton} />
                 <Text style={styles.title}>Food & Calories</Text>
             </View>
 
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+            >
             <ScrollView 
                 contentContainerStyle={styles.content}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchLogs(); }} />}
+                keyboardShouldPersistTaps="handled" 
             >
                 {/* Summary Card */}
                 <View style={styles.summaryCard}>
@@ -158,6 +161,7 @@ export const FoodScreen = () => {
                 </View>
 
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
@@ -227,7 +231,7 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.lg,
         marginBottom: spacing.lg,
-        ...shadows.level1,
+        ...shadows.soft,
     },
     formTitle: {
         ...fonts.h3,

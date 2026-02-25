@@ -72,12 +72,12 @@ export const NotificationService = {
     }
 
     // Reschedule Medicines
-    // Assuming backend or local storage has MEDICINES configured
-    // Wait, where are medicines stored? I need to fetch them.
-    // For now, assume StorageService.getItem('offline_medicines')
-    const medicines = await StorageService.getItem('offline_medicines') || [];
+    // Consume from the exact synced offline DB state
+    const medicines = await StorageService.getItem(STORAGE_KEYS.MEDICINES) || [];
     for (const med of medicines) {
-      await this.scheduleMedicine(med);
+      if (!med.is_taken || !med.is_completed) {
+        await this.scheduleMedicine(med);
+      }
     }
   },
 
@@ -86,23 +86,45 @@ export const NotificationService = {
       const enabled = await this.getNotificationsEnabled();
       if (!enabled || todo.is_completed || !todo.due_date) return;
 
-      const dueDate = new Date(todo.due_date);
-      if (dueDate.getTime() <= Date.now()) return; // Already passed
+      const identifier = `todo-${todo.id}`;
+      // Prevent duplicate stacking by clearing existing IDs first
+      await Notifications.cancelScheduledNotificationAsync(identifier);
 
-      // Valid Expo date trigger
-      const trigger: any = { 
-          type: 'date', 
-          date: dueDate 
-      };
+      // Parse absolute database UTC timestamp into local device clock Date object
+      const dueDate = new Date(todo.due_date);
+      const repeatType = todo.repeatType || todo.repeat_type || 'NONE';
+
+      let trigger: any = {};
+      
+      if (repeatType === 'DAILY') {
+          trigger = { hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+      } else if (repeatType === 'WEEKLY') {
+          // Expo weekday format: 1=Sun, 2=Mon... JS getDay() returns 0=Sun
+          trigger = { weekday: dueDate.getDay() + 1, hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+      } else if (repeatType === 'MONTHLY') {
+          trigger = { day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+      } else if (repeatType === 'YEARLY') {
+          trigger = { month: dueDate.getMonth(), day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+      } else {
+          // Explicitly validate that the localized single-occurrence Date is securely in the future
+          // Expo absolute Date triggers will FIRE INSTANTLY if evaluating to the past.
+          if (dueDate.getTime() <= Date.now()) {
+            return;
+          }
+          trigger = { date: dueDate };
+      }
+
       if (Platform.OS === 'android') {
           trigger.channelId = 'default';
       }
 
       await Notifications.scheduleNotificationAsync({
+        identifier,
         content: {
           title: "✅ Task Due",
           body: `${todo.title} is due now`,
           data: { todoId: todo.id },
+          sound: true,
         },
         trigger,
       });
@@ -121,51 +143,55 @@ export const NotificationService = {
     const isDaily = medicine.frequency === 'DAILY';
 
     for (const timeStr of medicine.times) {
-      try {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        
-        if (isDaily) {
-          const baseTrigger: any = {
-              type: 'daily',
-              hour: hours,
-              minute: minutes,
-          };
-          if (Platform.OS === 'android') {
-              baseTrigger.channelId = 'default';
-          }
+      if (typeof timeStr !== 'string') continue;
+      
+      const identifier = `med-${medicine.id}-${timeStr}`;
+      await Notifications.cancelScheduledNotificationAsync(identifier);
 
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "💊 Medicine Reminder",
-              body: `Time to take ${medicine.name}`,
-              data: { medicineId: medicine.id },
-            },
-            trigger: baseTrigger,
-          });
-        } else {
-          // Just today for now if not daily
-          const triggerDate = new Date();
-          triggerDate.setHours(hours, minutes, 0, 0);
-          if (triggerDate.getTime() > Date.now()) {
-            const tempTrigger: any = { 
-                type: 'date', 
-                date: triggerDate 
-            };
-            if (Platform.OS === 'android') tempTrigger.channelId = 'default';
+      try {
+        const parts = timeStr.split(':');
+        if (parts.length !== 2) continue;
+        
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) continue;
+
+        let trigger: any = {
+            hour: hours,
+            minute: minutes,
+            repeats: isDaily
+        };
+
+        if (!isDaily) {
+            // If not daily, explicitly target today's date
+            const triggerDate = new Date();
+            triggerDate.setHours(hours, minutes, 0, 0);
             
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: "💊 Medicine Reminder",
-                body: `Time to take ${medicine.name}`,
-                data: { medicineId: medicine.id },
-              },
-              trigger: tempTrigger,
-            });
-          }
+            if (triggerDate.getTime() <= Date.now()) {
+                // If the specific time today has already passed and it doesn't repeat, do not schedule.
+                continue;
+            }
+            trigger = { date: triggerDate };
         }
+
+        if (Platform.OS === 'android') {
+            trigger.channelId = 'default';
+        }
+
+        await Notifications.scheduleNotificationAsync({
+          identifier,
+          content: {
+            title: "💊 Medicine Reminder",
+            body: `Time to take ${medicine.name}`,
+            data: { medicineId: medicine.id },
+            sound: true,
+          },
+          trigger,
+        });
       } catch (e) {
-        console.warn('Failed to schedule medicine notification:', e);
+        console.warn(`Failed to schedule medicine notification for ${timeStr}:`, e);
       }
     }
-  }
+  },
 };

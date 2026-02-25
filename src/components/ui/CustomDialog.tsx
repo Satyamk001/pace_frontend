@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   destructiveButton: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: colors.error + '1A',
   },
   cancelButton: {
     // Transparent or light gray if needed

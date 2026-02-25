@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@clerk/clerk-expo';
 import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
 import { createApiService } from '../services/api';
@@ -8,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { MoodSelector } from '../components/MoodSelector';
 import { HealthBanner } from '../components/HealthBanner';
 import { TaskItem } from '../components/TaskItem';
-import { CompletionModal } from '../components/CompletionModal';
 import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
 import { useMoodTheme } from '../context/MoodContext';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
@@ -22,12 +22,11 @@ export const HomeScreen = ({ navigation }: any) => {
   const [dailyLog, setDailyLog] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'UPCOMING' | 'MISSED' | 'DONE'>('ALL');
 
   const [selectedMood, setSelectedMood] = useState<string | undefined>(undefined);
   
-  // Completion Modal State
-  const [completionModalVisible, setCompletionModalVisible] = useState(false);
-  const [toggleTarget, setToggleTarget] = useState<any>(null);
+
 
   const fetchData = async () => {
     try {
@@ -66,7 +65,6 @@ export const HomeScreen = ({ navigation }: any) => {
   const handleDeleteTodo = async (id: string) => {
       try {
           await api.deleteTodo(id);
-          setCompletionModalVisible(false);
           fetchData();
       } catch (e) {
           console.error('Delete failed:', e);
@@ -84,7 +82,6 @@ export const HomeScreen = ({ navigation }: any) => {
             }
           }
           
-          setCompletionModalVisible(false);
           fetchData();
       } catch (e) {
           console.error('Reschedule failed:', e);
@@ -116,20 +113,39 @@ export const HomeScreen = ({ navigation }: any) => {
   const isLowEnergy = dailyLog?.day_type === 'LOW_ENERGY';
 
   const getSortedTodos = () => {
-    let sorted = [...todos];
+    // 1) Pre-filter based on the active tab
+    const now = new Date();
+    let filtered = todos.filter(t => {
+        if (activeFilter === 'ALL') return true;
+        if (activeFilter === 'DONE') return t.is_completed || t.progress === 100;
+        
+        const isDone = t.is_completed || t.progress === 100;
+        if (isDone) return false; // Both UPCOMING and MISSED only show incomplete tasks
+
+        const dueDate = t.due_date ? new Date(t.due_date) : null;
+        if (!dueDate) return activeFilter === 'UPCOMING'; // Tasks with no time are always "upcoming" for the day
+
+        const isOverdue = dueDate < now;
+        if (activeFilter === 'MISSED') return isOverdue;
+        if (activeFilter === 'UPCOMING') return !isOverdue;
+        
+        return true;
+    });
+
+    // 2) Sort
     if (isFlareUp || isLowEnergy) {
         // Smart Sort: Low Energy first, High Energy last
         const energyOrder = { 'LOW': 0, 'MEDIUM': 1, 'HIGH': 2 };
-        sorted.sort((a, b) => {
+        filtered.sort((a, b) => {
             const energyA = energyOrder[a.energy_level as keyof typeof energyOrder] ?? 1;
             const energyB = energyOrder[b.energy_level as keyof typeof energyOrder] ?? 1;
             return energyA - energyB;
         });
     } else {
          // Default: Incomplete first
-         sorted.sort((a, b) => (a.is_completed === b.is_completed ? 0 : a.is_completed ? 1 : -1));
+         filtered.sort((a, b) => (a.is_completed === b.is_completed ? 0 : a.is_completed ? 1 : -1));
     }
-    return sorted;
+    return filtered;
   };
 
   const sortedTodos = getSortedTodos();
@@ -146,9 +162,14 @@ export const HomeScreen = ({ navigation }: any) => {
   const greeting = getGreeting();
 
   return (
-      <ScreenLayout edges={['top']}>
-        {/* Fixed Header */}
-        <View style={styles.fixedHeader}>
+      <ScreenLayout edges={['top']} useGradient="hero">
+        {/* Fixed Header / Health Hub Mat */}
+        <LinearGradient 
+            colors={colors.gradients.background as unknown as readonly [string, string, ...string[]]}
+            style={styles.fixedHeader}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+        >
             <View style={styles.headerContainer}>
                 {/* Greeting */}
                 <View style={styles.greetingIconWrap}>
@@ -165,7 +186,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
             </View>
 
-            <View style={{ marginBottom: spacing.l }}>
+            <View style={{ marginBottom: spacing.s }}>
                 <MoodSelector onSelectMood={handleMoodSelect} selectedMood={selectedMood} />
             </View>
 
@@ -176,9 +197,59 @@ export const HomeScreen = ({ navigation }: any) => {
             />
 
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Today's Plan</Text>
+                <Text style={styles.sectionTitle}>Tasks</Text>
+                {/* Filters Row */}
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    style={{ flex: 1, marginLeft: spacing.s }}
+                    contentContainerStyle={styles.filterRow}
+                >
+                    {(['ALL', 'UPCOMING', 'MISSED', 'DONE'] as const).map(filter => {
+                        // Calculate count for this specific filter
+                        let count = 0;
+                        const now = new Date();
+                        if (filter === 'ALL') {
+                            count = todos.length;
+                        } else {
+                            count = todos.filter(t => {
+                                const isDone = t.is_completed || t.progress === 100;
+                                if (filter === 'DONE') return isDone;
+                                if (isDone) return false;
+                        
+                                const dueDate = t.due_date ? new Date(t.due_date) : null;
+                                if (!dueDate) return filter === 'UPCOMING';
+                                
+                                const isOverdue = dueDate < now;
+                                if (filter === 'MISSED') return isOverdue;
+                                if (filter === 'UPCOMING') return !isOverdue;
+                                return false;
+                            }).length;
+                        }
+
+                        const isActive = activeFilter === filter;
+                        
+                        return (
+                        <TouchableOpacity 
+                            key={filter} 
+                            style={[styles.filterChip, isActive && styles.filterChipActive]}
+                            onPress={() => setActiveFilter(filter)}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                                {filter.charAt(0) + filter.slice(1).toLowerCase()}
+                            </Text>
+                            <View style={[styles.filterCountCircle, isActive && styles.filterCountCircleActive]}>
+                                <Text style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
+                                    {count < 10 ? `0${count}` : count}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
-        </View>
+        </LinearGradient>
 
         {/* Scrollable Task List */}
         <ScrollView 
@@ -204,48 +275,28 @@ export const HomeScreen = ({ navigation }: any) => {
                     progress={todo.progress}
                     dueDate={todo.due_date}
                     feedback={todo.feedback}
-                    onPress={() => {
-                        if (todo.is_completed) {
-                            navigation.navigate('TaskDetail', { todo });
-                        } else {
-                            setToggleTarget(todo);
-                            setCompletionModalVisible(true);
+                    onPress={() => navigation.navigate('TaskDetail', { todo })}
+                    onToggle={async () => {
+                        const newCompletedState = !todo.is_completed;
+                        const newProgress = newCompletedState ? 100 : 0;
+                        setTodos(prev => prev.map(t => 
+                            t.id === todo.id ? {...t, progress: newProgress, is_completed: newCompletedState} : t
+                        ));
+                        try {
+                            await api.updateTodoDetails(todo.id, { progress: newProgress, isCompleted: newCompletedState });
+                            fetchData();
+                        } catch (e) {
+                            console.error(e);
                         }
                     }}
-                    onToggle={() => {
-                        setToggleTarget(todo);
-                        setCompletionModalVisible(true);
-                    }}
+                    onDelete={() => handleDeleteTodo(todo.id)}
                 />
             ))
             )}
             <View style={{height: 100}} />
         </ScrollView>
 
-      {/* Completion Modal */}
-      <CompletionModal
-        visible={completionModalVisible}
-        onClose={() => setCompletionModalVisible(false)}
-        todo={toggleTarget}
-        onConfirm={async (progress: number, feedback?: string) => {
-            if (!toggleTarget) return;
-            const isCompleted = progress === 100;
-            setTodos(prev => prev.map(t => 
-                t.id === toggleTarget.id ? {...t, progress, is_completed: isCompleted, feedback: feedback !== undefined ? feedback : t.feedback} : t
-            ));
-            try {
-                // Make sure feedback goes to the server
-                await api.updateTodoDetails(toggleTarget.id, { progress, isCompleted, feedback });
-                fetchData();
-            } catch (e) {
-                console.error(e);
-            }
-        }}
-        onDelete={handleDeleteTodo}
-        onReschedule={handleRescheduleTodo}
-        initialProgress={toggleTarget?.progress || 0}
-        title={toggleTarget?.title}
-      />
+
 
       
     </ScreenLayout>
@@ -259,7 +310,6 @@ const styles = StyleSheet.create({
   },
   fixedHeader: {
     paddingTop: spacing.m,
-    backgroundColor: colors.background, // Make transparent for gradient
   },
   taskListContent: {
     paddingHorizontal: spacing.l,
@@ -317,6 +367,58 @@ const styles = StyleSheet.create({
       ...typography.subheader,
       color: colors.text,
       fontSize: 18
+  },
+  filterRow: {
+      paddingRight: 0,
+      gap: 6,
+      alignItems: 'center',
+      flexGrow: 1,
+      justifyContent: 'flex-end',
+  },
+  filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingLeft: 12,
+      paddingRight: 4,
+      height: 30,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceSoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+  },
+  filterChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+      ...shadows.soft,
+  },
+  filterText: {
+      ...typography.caption,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginRight: 6,
+  },
+  filterTextActive: {
+      color: colors.surface,
+  },
+  filterCountCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+  },
+  filterCountCircleActive: {
+      // Background remains surface (white) even when active
+  },
+  filterCountText: {
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.textSecondary,
+  },
+  filterCountTextActive: {
+      color: colors.primary,
   },
   emptyState: {
       padding: spacing.xl,

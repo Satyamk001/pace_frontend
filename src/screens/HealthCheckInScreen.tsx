@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
@@ -87,11 +87,15 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
 
   return (
     <ScreenLayout edges={['top']}>
-        <View style={{flex: 1}}>
-            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+        >
+            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
                 {/* Header with Back Button */}
                 <View style={styles.header}>
-                    <BackButton style={styles.backBtn} />
+                    <BackButton />
                     <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
                     <View style={{width: 24}} /> 
                 </View>
@@ -138,7 +142,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
                     {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>{isUpdate ? 'Update' : 'Save Check-in'}</Text>}
                 </TouchableOpacity>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     </ScreenLayout>
   );
 };
@@ -155,10 +159,6 @@ const styles = StyleSheet.create({
       justifyContent: 'space-between',
       marginBottom: spacing.l,
       // paddingTop: spacing.m,
-  },
-  backBtn: {
-      padding: 8,
-      marginLeft: -8,
   },
   headerTitle: {
       ...typography.subheader,

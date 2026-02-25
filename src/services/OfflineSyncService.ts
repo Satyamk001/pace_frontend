@@ -170,23 +170,40 @@ class OfflineSyncManager {
             for (let i = 0; i < 7; i++) {
                 const dateKey = tempDate.toISOString().split('T')[0];
                 
-                const [log, metrics, food] = await Promise.all([
+                const [log, metrics, food, intakes] = await Promise.all([
                     api.getDailyLog(dateKey).catch(() => null),
                     api.getHealthMetrics(dateKey).catch(() => null),
-                    api.getDailyFoodLog(dateKey).catch(() => null)
+                    api.getDailyFoodLog(dateKey).catch(() => null),
+                    api.getIntakeHistory(dateKey).catch(() => null)
                 ]);
 
                 if (log) await StorageService.updateDailyLog(log);
                 if (metrics) await StorageService.updateHealthMetrics(metrics);
-                // Food omitted from aggressive cache for now unless specifically needed for history
+                if (food) await StorageService.updateDailyFoodLogs(dateKey, food);
+                if (intakes) await StorageService.updateMedicineIntakes(dateKey, intakes);
 
                 tempDate.setDate(tempDate.getDate() - 1); // Go back one day
+            }
+            
+            // Also fetch weight history for the 7 day window
+            const weightHistory = await api.getWeightHistory(sevenDaysAgo, new Date().toISOString().split('T')[0]).catch(() => null);
+            if (weightHistory) {
+                await StorageService.updateWeightHistory(weightHistory);
             }
             
             const now = new Date().toISOString();
             await AsyncStorage.setItem('last_synced', now);
             console.log('[OfflineSync] Deep cache sync complete.');
             
+            // Re-bake background notifications with fresh database bounds
+            try {
+                const NotificationModule = require('./NotificationService').NotificationService;
+                await NotificationModule.rescheduleAll();
+                console.log('[OfflineSync] Background notifications rescheduled synced state.');
+            } catch (notifyError) {
+                console.warn('[OfflineSync] Failed to reschedule notifications post-sync', notifyError);
+            }
+
         } catch (e) {
             console.error('[OfflineSync] Failed to pull 7-day history', e);
         }

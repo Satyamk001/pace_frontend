@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: 24,
         padding: spacing.xl,
-        ...shadows.level2,
+        ...shadows.medium,
         alignItems: 'center',
     },
     priceContainer: {

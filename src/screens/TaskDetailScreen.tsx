@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Slider from '@react-native-community/slider';
 import { CustomDatePicker } from '../components/ui/CustomDatePicker';
-import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
+import { PanGestureHandler } from 'react-native-gesture-handler';
+import { DateTimeModal } from '../components/DateTimeModal';
 
 
 import { CustomDialog } from '../components/ui/CustomDialog';
@@ -28,6 +28,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     const [energyLevel, setEnergyLevel] = useState<'LOW' | 'MEDIUM' | 'HIGH'>(todo.energy_level || 'MEDIUM');
     const [progress, setProgress] = useState(todo.progress || 0);
     const [isCompleted, setIsCompleted] = useState(todo.is_completed || false);
+    const [barWidth, setBarWidth] = useState(1); // Default to 1 to avoid div by zero
     
     // Restore missing state
     const [dueDate, setDueDate] = useState<Date>(todo.due_date ? new Date(todo.due_date) : new Date());
@@ -40,8 +41,8 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
     });
 
     const [isSaving, setIsSaving] = useState(false);
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+    const [repeatType, setRepeatType] = useState<string>(todo.repeat_type || 'NONE');
     const todayStr = (() => {
         const d = new Date();
         const year = d.getFullYear();
@@ -61,7 +62,10 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
 
     const handleSave = async () => {
         const now = new Date();
-        if (hasTime && dueDate < now) {
+        const initialDate = todo.due_date ? new Date(todo.due_date) : new Date(0);
+        const isTimeChanged = dueDate.getTime() !== initialDate.getTime();
+
+        if (hasTime && dueDate < now && isTimeChanged) {
             setDialogConfig({
                 visible: true,
                 title: "Invalid Time",
@@ -82,6 +86,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 feedback,
                 isCompleted: completed,
                 dueDate: dueDate.toISOString(),
+                repeatType,
             });
 
             // Reschedule notification dynamically based on updated state
@@ -101,7 +106,11 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 await NotificationService.scheduleTodo(mockTodo);
             }
 
-            navigation.goBack();
+            // Return to previous screen but merge params if it's Calendar so it snaps to the newly saved date
+            navigation.navigate('MainTabs', {
+                screen: 'Calendar',
+                params: { updatedTaskDate: dueDate.toISOString() },
+            });
         } catch (e) {
             console.error(e);
             setDialogConfig({
@@ -165,8 +174,16 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 </TouchableOpacity>
             </View>
 
-            <View style={{flex: 1}}>
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+            >
+                <ScrollView 
+                    contentContainerStyle={styles.content} 
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled" 
+                >
                     
                     {/* Status badge */}
                     {isCompleted && (
@@ -221,23 +238,51 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Progress</Text>
                         <View style={styles.progressSection}>
-                            <Text style={styles.progressValue}>{progress}%</Text>
-                            <Slider
-                                style={{ width: '100%', height: 40 }}
-                                value={progress}
-                                onValueChange={(v) => {
-                                    const stepped = Math.round(v / 5) * 5;
-                                    setProgress(stepped);
-                                    if (stepped === 100) setIsCompleted(true);
-                                    if (stepped < 100 && isCompleted) setIsCompleted(false);
+                            <Text style={[styles.progressValue, { color: (() => {
+                                if (progress < 20) return colors.mood.pain;
+                                if (progress < 40) return colors.mood.low;
+                                if (progress < 60) return colors.mood.okay;
+                                if (progress < 80) return colors.mood.good;
+                                return colors.mood.great;
+                            })() }]}>{progress}%</Text>
+                            
+                            <PanGestureHandler
+                                onGestureEvent={(e) => {
+                                    const x = e.nativeEvent.x;
+                                    let newProg = Math.round((x / barWidth) * 100);
+                                    newProg = Math.max(0, Math.min(100, newProg));
+                                    newProg = Math.round(newProg / 5) * 5; // Step by 5
+                                    
+                                    if (newProg !== progress) {
+                                        setProgress(newProg);
+                                        if (newProg === 100) setIsCompleted(true);
+                                        if (newProg < 100 && isCompleted) setIsCompleted(false);
+                                    }
                                 }}
-                                minimumValue={0}
-                                maximumValue={100}
-                                step={5}
-                                minimumTrackTintColor={colors.primary}
-                                maximumTrackTintColor={colors.border}
-                                thumbTintColor={colors.primary}
-                            />
+                            >
+                                <View 
+                                    style={styles.customSliderTrack}
+                                    onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                                >
+                                    <View 
+                                        style={[
+                                            styles.customSliderFill, 
+                                            { 
+                                                width: `${progress}%`,
+                                                backgroundColor: (() => {
+                                                    if (progress < 20) return colors.mood.pain;
+                                                    if (progress < 40) return colors.mood.low;
+                                                    if (progress < 60) return colors.mood.okay;
+                                                    if (progress < 80) return colors.mood.good;
+                                                    return colors.mood.great;
+                                                })()
+                                            }
+                                        ]} 
+                                    />
+                                    {/* Thumb */}
+                                    <View style={[styles.customSliderThumb, { left: `${progress}%` }]} />
+                                </View>
+                            </PanGestureHandler>
                         </View>
                     </View>
 
@@ -245,10 +290,9 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Schedule</Text>
                         <View style={styles.scheduleRow}>
-                            {/* Date Chip */}
                             <TouchableOpacity 
                                 style={styles.scheduleChip}
-                                onPress={() => setShowDatePicker(true)}
+                                onPress={() => setShowDateTimePicker(true)}
                             >
                                 <Ionicons name="calendar-outline" size={18} color={colors.primary} />
                                 <Text style={styles.scheduleText}>
@@ -256,10 +300,9 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                                 </Text>
                             </TouchableOpacity>
 
-                            {/* Time Chip */}
                             <TouchableOpacity 
                                 style={[styles.scheduleChip, hasTime && styles.activeChip]}
-                                onPress={() => setShowTimePicker(true)}
+                                onPress={() => setShowDateTimePicker(true)}
                             >
                                 <Ionicons name="time-outline" size={18} color={hasTime ? colors.primary : colors.textLight} />
                                 <Text style={[styles.scheduleText, hasTime && { color: colors.primary }]}>
@@ -282,44 +325,20 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                             )}
                         </View>
 
-                        <CustomDatePicker
-                            visible={showDatePicker}
+                        <DateTimeModal 
+                            visible={showDateTimePicker}
+                            onClose={() => setShowDateTimePicker(false)}
                             initialDate={dueDate}
-                            minDate={todayStr}
-                            onClose={() => setShowDatePicker(false)}
-                            onConfirm={(date) => {
-                                const newDate = new Date(date);
-                                if (hasTime) {
-                                    newDate.setHours(dueDate.getHours(), dueDate.getMinutes());
-                                } else {
-                                    newDate.setHours(0, 0, 0, 0);
-                                }
-                                setDueDate(newDate);
-                                setShowDatePicker(false);
+                            initialRepeatType={repeatType}
+                            onSave={(date, rType) => {
+                                setDueDate(date);
+                                setRepeatType(rType);
+                                
+                                // check if time is explicitly set to 00:00 (which we treat as no-time if derived from DatePicker)
+                                // We'll simplify and say if user used the modal, time *is* set unless they clear it manually
+                                setHasTime(true);
                             }}
-                            title="Set Due Date"
                         />
-
-                        {showTimePicker && (
-                            <MyDateTimePicker
-                                value={dueDate}
-                                mode="time"
-                                is24Hour={false}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={(event, selectedDate) => {
-                                    setShowTimePicker(Platform.OS === 'ios');
-                                    if (selectedDate) {
-                                        const newDate = new Date(dueDate);
-                                        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
-                                        setDueDate(newDate);
-                                        setHasTime(true);
-                                    }
-                                    if (Platform.OS !== 'ios') {
-                                        setShowTimePicker(false);
-                                    }
-                                }}
-                            />
-                        )}
                     </View>
 
 
@@ -340,7 +359,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                         <Text style={styles.saveBtnText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </ScreenLayout>
     );
 };
@@ -426,7 +445,29 @@ const styles = StyleSheet.create({
     progressValue: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: colors.primary,
+    },
+    customSliderTrack: {
+        width: '100%',
+        height: 12,
+        backgroundColor: colors.border + '60',
+        borderRadius: 6,
+        justifyContent: 'center',
+        marginVertical: 14,
+    },
+    customSliderFill: {
+        height: '100%',
+        borderRadius: 6,
+    },
+    customSliderThumb: {
+        position: 'absolute',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: colors.surface,
+        borderWidth: 2,
+        borderColor: colors.textPrimary,
+        marginLeft: -12, // Offset to center thumb on the value
+        ...shadows.soft,
     },
     energyRow: {
         flexDirection: 'row',

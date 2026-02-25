@@ -80,7 +80,7 @@ const taskStyles = StyleSheet.create({
         padding: spacing.lg,
         marginBottom: spacing.l,
         borderRadius: borderRadius.m,
-        ...shadows.level1,
+        ...shadows.soft,
         marginHorizontal: 2,
     },
     topRow: {

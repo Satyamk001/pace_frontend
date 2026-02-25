@@ -7,6 +7,9 @@ export const STORAGE_KEYS = {
     MEDICINES: 'offline_medicines',
     DAILY_LOGS: 'offline_daily_logs', // Specifically for the detailed log objects
     HEALTH_METRICS: 'offline_health_metrics', // Specifically for the detailed metrics
+    FOOD_LOGS: 'offline_food_logs',
+    MEDICINE_INTAKES: 'offline_medicine_intakes',
+    WEIGHT_HISTORY: 'offline_weight_history',
 };
 
 const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -56,7 +59,47 @@ export const StorageService = {
         });
         if (todosChanged) await this.setItem(STORAGE_KEYS.TODOS, updatedTodos);
 
-        // Add additional replacements here if other entities use temp IDs (e.g., Medicines)
+        // 2. Replace in Medicines
+        const meds = await this.getItem(STORAGE_KEYS.MEDICINES) || [];
+        let medsChanged = false;
+        const updatedMeds = meds.map((m: any) => {
+            if (m.id === tempId) { medsChanged = true; return { ...m, id: realId }; }
+            return m;
+        });
+        if (medsChanged) await this.setItem(STORAGE_KEYS.MEDICINES, updatedMeds);
+
+        // 3. Replace in Food Logs
+        const foodLogs = await this.getItem(STORAGE_KEYS.FOOD_LOGS) || {};
+        let foodChanged = false;
+        Object.keys(foodLogs).forEach(date => {
+             const updated = foodLogs[date].map((f:any) => {
+                 if (f.id === tempId) { foodChanged = true; return {...f, id: realId}; }
+                 return f;
+             });
+             foodLogs[date] = updated;
+        });
+        if (foodChanged) await this.setItem(STORAGE_KEYS.FOOD_LOGS, foodLogs);
+
+        // 4. Replace in Intake History
+        const intakes = await this.getItem(STORAGE_KEYS.MEDICINE_INTAKES) || {};
+        let intakeChanged = false;
+        Object.keys(intakes).forEach(date => {
+             const updated = intakes[date].map((i:any) => {
+                 if (i.id === tempId) { intakeChanged = true; return {...i, id: realId}; }
+                 return i;
+             });
+             intakes[date] = updated;
+        });
+        if (intakeChanged) await this.setItem(STORAGE_KEYS.MEDICINE_INTAKES, intakes);
+
+        // 5. Replace in Weight History
+        const weights = await this.getItem(STORAGE_KEYS.WEIGHT_HISTORY) || [];
+        let weightChanged = false;
+        const updatedWeights = weights.map((w: any) => {
+             if (w.id === tempId) { weightChanged = true; return {...w, id: realId}; }
+             return w;
+        });
+        if (weightChanged) await this.setItem(STORAGE_KEYS.WEIGHT_HISTORY, updatedWeights);
     },
 
     // --- LOCAL CRUD FOR TODOS ---
@@ -131,6 +174,55 @@ export const StorageService = {
     async getHealthMetrics(dateStr: string) {
         const metrics = await this.getItem(STORAGE_KEYS.HEALTH_METRICS) || {};
         return metrics[dateStr] || null;
+    },
+
+    // --- FOOD LOGS ---
+    async updateDailyFoodLogs(dateStr: string, foodLogs: any[]) {
+        const allLogs = await this.getItem(STORAGE_KEYS.FOOD_LOGS) || {};
+        allLogs[dateStr] = foodLogs;
+        await this.setItem(STORAGE_KEYS.FOOD_LOGS, allLogs);
+    },
+    async getDailyFoodLogs(dateStr: string) {
+        const allLogs = await this.getItem(STORAGE_KEYS.FOOD_LOGS) || {};
+        return allLogs[dateStr] || [];
+    },
+
+    // --- MEDICINE INTAKE ---
+    async updateMedicineIntakes(dateStr: string, intakes: any[]) {
+        const allIntakes = await this.getItem(STORAGE_KEYS.MEDICINE_INTAKES) || {};
+        allIntakes[dateStr] = intakes;
+        await this.setItem(STORAGE_KEYS.MEDICINE_INTAKES, allIntakes);
+    },
+    async getMedicineIntakes(dateStr: string) {
+        const allIntakes = await this.getItem(STORAGE_KEYS.MEDICINE_INTAKES) || {};
+        return allIntakes[dateStr] || [];
+    },
+
+    // --- WEIGHT HISTORY ---
+    async updateWeightHistory(history: any[]) {
+        const allWeight = await this.getItem(STORAGE_KEYS.WEIGHT_HISTORY) || [];
+        const weightMap = new Map((allWeight as any[]).map((w: any) => [w.date, w]));
+        history.forEach(w => weightMap.set(w.date, w));
+        const merged = Array.from(weightMap.values()).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        await this.setItem(STORAGE_KEYS.WEIGHT_HISTORY, merged);
+    },
+    async getWeightHistory(startDate: string, endDate: string) {
+        const allWeight = await this.getItem(STORAGE_KEYS.WEIGHT_HISTORY) || [];
+        const filtered = (allWeight as any[]).filter((w: any) => {
+            return w.date >= startDate && w.date <= endDate;
+        });
+        
+        // Calculate Offline stats
+        let min = 0, max = 0, avg = 0;
+        if (filtered.length > 0) {
+            const weights = filtered.map(r => parseFloat(r.weight));
+            min = Math.min(...weights);
+            max = Math.max(...weights);
+            const sum = weights.reduce((acc, val) => acc + val, 0);
+            avg = sum / weights.length;
+        }
+
+        return { history: filtered, stats: { min, max, avg } };
     },
     
     // Feature 1: 7-Day Rolling Stats locally
