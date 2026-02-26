@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Text } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -283,25 +283,8 @@ const MainTabs = () => (
 
 export const AppNavigator = () => {
     const { isSignedIn, isLoaded } = useAuth();
-    const [offlineSignedIn, setOfflineSignedIn] = useState<boolean | null>(null);
 
-    useEffect(() => {
-        const check = async () => {
-            if (isLoaded && isSignedIn) {
-                setOfflineSignedIn(true);
-            } else {
-                const cached = await AsyncStorage.getItem('offline_session_timestamp');
-                setOfflineSignedIn(
-                    cached && Date.now() - parseInt(cached) < 7 * 24 * 60 * 60 * 1000
-                        ? true
-                        : false
-                );
-            }
-        };
-        check();
-    }, [isLoaded, isSignedIn]);
-
-    if (!isLoaded && offlineSignedIn === null) return null;
+    if (!isLoaded) return null;
 
     return (
         <OfflineProvider>
@@ -314,7 +297,7 @@ export const AppNavigator = () => {
                             ...standardSlide,
                         }}
                     >
-                        {isSignedIn || offlineSignedIn ? (
+                        {isSignedIn ? (
                             <>
                                 <Stack.Screen name="MainTabs" component={MainTabs} />
                                 <Stack.Screen name="AddTask" component={AddTaskScreen} options={modalSlide} />

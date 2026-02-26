@@ -16,6 +16,7 @@ import { BackButton } from '../components/ui/BackButton';
 import { EnergySelector } from '../components/EnergySelector';
 import { NotificationService } from '../services/NotificationService';
 
+
 export const TaskDetailScreen = ({ route, navigation }: any) => {
     const { todo } = route.params;
     const { getToken } = useAuth();

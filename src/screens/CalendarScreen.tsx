@@ -28,124 +28,18 @@ import { getLocalDateKey } from '../utils/dateUtils';
 import { ProgressChart } from 'react-native-chart-kit';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { NotificationService } from '../services/NotificationService';
-import { useOffline } from '../context/OfflineContext';
 
-interface ScheduleCardProps {
-    title: string;
-    dueDate: string;
-    energyLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-    isCompleted: boolean;
-    progress?: number;
-    feedback?: string;
-    onPress: () => void;
-    onToggle: () => void;
-}
+import { CalendarScheduleCard } from '../components/CalendarScheduleCard';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const { width: screenWidth } = Dimensions.get('window');
 const CALENDAR_HEIGHT = 355;
-
-// ─────────────────────────────────────────────────────────
-// ScheduleCard
-// ─────────────────────────────────────────────────────────
-
-const ScheduleCard = ({
-    title, dueDate, energyLevel, isCompleted,
-    progress = 0, feedback, onPress, onToggle,
-}: ScheduleCardProps) => {
-    const scale = useSharedValue(1);
-
-    const ENERGY_MAP = {
-        LOW: { icon: 'leaf-outline', color: colors.mood.great, label: 'Low Energy' },
-        MEDIUM: { icon: 'sunny-outline', color: colors.mood.okay, label: 'Med Energy' },
-        HIGH: { icon: 'flame-outline', color: colors.mood.pain, label: 'High Energy' },
-    };
-    const energy = ENERGY_MAP[energyLevel as keyof typeof ENERGY_MAP] || ENERGY_MAP.MEDIUM;
-
-    const getFormattedDate = () => {
-        if (!dueDate) return { timeText: '', isWarning: false };
-        const date = new Date(dueDate);
-        const isOverdue = date < new Date() && !isCompleted;
-        return {
-            timeText: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isWarning: isOverdue,
-        };
-    };
-
-    const dateInfo = getFormattedDate();
-    const isFullyDone = isCompleted || progress === 100;
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-    }));
-
-    return (
-        <View style={styles.cardRow}>
-            <View style={styles.cardTimeCol}>
-                <Text style={[styles.cardTime, dateInfo.isWarning && { color: colors.warning }]}>
-                    {dateInfo.timeText}
-                </Text>
-                <View style={styles.cardTimeline}>
-                    <View style={[styles.timelineDot, isFullyDone && styles.timelineDotDone]} />
-                    <View style={[styles.timelineConnector, isFullyDone && styles.timelineConnectorDone]} />
-                </View>
-            </View>
-
-            <AnimatedReanimated.View style={[styles.card, isFullyDone && styles.cardDone, animatedStyle]}>
-                <Pressable
-                    onPress={onPress}
-                    onPressIn={() => (scale.value = withSpring(0.975))}
-                    onPressOut={() => (scale.value = withSpring(1))}
-                    style={{ flex: 1 }}
-                >
-                    <View  />
-                    <View style={styles.cardInner}>
-                        <View style={styles.cardHeader}>
-                            <Text style={[styles.cardTitle, isFullyDone && styles.cardTitleDone]} numberOfLines={2}>
-                                {title}
-                            </Text>
-                            <TouchableOpacity onPress={onToggle} style={styles.checkBtn}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <View style={[styles.checkCircle, isFullyDone && styles.checkCircleDone]}>
-                                    {isFullyDone && <Ionicons name="checkmark" size={13} color="#fff" />}
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-
-                        {Boolean(feedback) && (
-                            <Text style={styles.cardFeedback} numberOfLines={1}>{feedback}</Text>
-                        )}
-
-                        <View style={styles.cardFooter}>
-                            <View style={[styles.energyChip, { borderColor: energy.color }]}>
-                                {/* <Ionicons name={energy.icon as any} size={12} color={colors.textPrimary} /> */}
-                                <Text style={styles.energyLabel}>{energy.label}</Text>
-                            </View>
-                            {dateInfo.isWarning && (
-                                <View style={[styles.energyChip, { borderColor: colors.warning }]}>
-                                    <Text style={[styles.energyLabel, { color: colors.warning }]}>Missed</Text>
-                                </View>
-                            )}
-                            {progress > 0 && progress < 100 && !isFullyDone && (
-                                <View style={styles.progressPill}>
-                                    <View style={[styles.progressFill, { width: `${progress}%` as any }]} />
-                                    <Text style={styles.progressPct}>{progress}%</Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                </Pressable>
-            </AnimatedReanimated.View>
-        </View>
-    );
-};
-
-// ─────────────────────────────────────────────────────────
 // CalendarScreen
 // ─────────────────────────────────────────────────────────
 
 export const CalendarScreen = ({ route, navigation }: any) => {
     const { getToken } = useAuth();
+
     const api = createApiService(getToken);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -158,7 +52,6 @@ export const CalendarScreen = ({ route, navigation }: any) => {
     const [refreshing, setRefreshing] = useState(false);
     const [weekStartDate, setWeekStartDate] = useState(new Date());
     const [lastScrollY, setLastScrollY] = useState(0);
-    const { isOffline } = useOffline();
 
     // ─── Init
     useEffect(() => {
@@ -499,23 +392,12 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                 >
                     {renderSummaryCard()}
 
-                    {/* --- OFFLINE BOUNDARY LOCK --- */}
-                    {isOffline && selectedDate < new Date(new Date().setDate(new Date().getDate() - 7)) ? (
-                        <View style={styles.emptyState}>
-                            <View style={[styles.emptyIcon, { backgroundColor: colors.warning + '20' }]}>
-                                <Ionicons name="cloud-offline-outline" size={32} color={colors.warning} />
-                            </View>
-                            <Text style={styles.emptyTitle}>Offline Cache Limit</Text>
-                            <Text style={styles.emptySubtitle}>
-                                Connect to the internet to view history older than 7 days.
-                            </Text>
-                        </View>
-                    ) : loading ? (
+                    {loading ? (
                         <ScheduleListSkeleton />
                     ) : dayTasks.length > 0 ? (
                         <View style={styles.taskList}>
                             {dayTasks.map((task) => (
-                                <ScheduleCard
+                                <CalendarScheduleCard
                                     key={task.id}
                                     title={task.title}
                                     dueDate={task.due_date}
@@ -870,6 +752,7 @@ const styles = StyleSheet.create({
     // ── Task list / cards
     taskList: {
         paddingHorizontal: spacing.lg,
+        letterSpacing: 0.3,
     },
     cardRow: {
         flexDirection: 'row',

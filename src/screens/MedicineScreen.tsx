@@ -6,16 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
-import { useOffline } from '../context/OfflineContext';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { NotificationService } from '../services/NotificationService';
 import { BackButton } from '../components/ui/BackButton';
+import { MedicineFormCard } from '../components/ui/MedicineFormCard';
+import { MedicineCard } from '../components/ui/MedicineCard';
 
 export const MedicineScreen = () => {
     const navigation = useNavigation();
     const { getToken } = useAuth();
-    const { isOffline } = useOffline();
     const api = createApiService(getToken);
 
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,8 +115,9 @@ export const MedicineScreen = () => {
                     try {
                         await api.deleteMedicine(id);
                         
-                        // Force a full reschedule to wipe out any orphaned background alarms for the deleted med
-                        await NotificationService.rescheduleAll();
+                        // Cancel only this medicine's notifications
+                        const med = medicines.find((m: any) => m.id === id);
+                        await NotificationService.cancelMedicine(id, med?.times || []);
                         
                         loadData();
                         setDialogVisible(false);
@@ -194,97 +196,40 @@ export const MedicineScreen = () => {
 
                 {/* Form */}
                 {showForm && (
-                     <View style={styles.formCard}>
-                        <Text style={styles.formTitle}>{editingId ? 'Edit Medicine' : 'New Medicine'}</Text>
-                        <TextInput 
-                            style={styles.input} 
-                            placeholder="Medicine Name" 
-                            value={name}
-                            onChangeText={setName}
-                        />
-                        <TextInput 
-                            style={styles.input} 
-                            placeholder="Dosage (e.g. 1 pill)" 
-                            value={dosage}
-                            onChangeText={setDosage}
-                        />
-                        
-                        <Text style={styles.label}>Schedule Times</Text>
-                        <View style={styles.timeList}>
-                            {times.map((t, i) => (
-                                <View key={i} style={styles.timeChip}>
-                                    <Text style={styles.timeChipText}>{t}</Text>
-                                    <TouchableOpacity onPress={() => setTimes(times.filter(x => x !== t))}>
-                                        <Ionicons name="close-circle" size={16} color={colors.textLight} />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                             <TouchableOpacity style={styles.timeAddBtn} onPress={() => setShowTimePicker(true)}>
-                                <Ionicons name="time" size={20} color={colors.primary} />
-                                <Text style={{color: colors.primary, marginLeft: 4}}>Add Time</Text>
-                             </TouchableOpacity>
-                        </View>
-                        
-                        {showTimePicker && (
-                            <DateTimePicker
-                                value={selectedTime}
-                                mode="time"
-                                is24Hour={true}
-                                display="default"
-                                onChange={handleAddTime}
-                            />
-                        )}
-
-                        <View style={styles.formActions}>
-                            <TouchableOpacity onPress={() => { setShowForm(false); setEditingId(null); }}>
-                                <Text style={{ color: colors.textLight }}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveButton} onPress={handleSaveMedicine}>
-                                <Text style={styles.saveButtonText}>{editingId ? 'Update' : 'Save'}</Text>
-                            </TouchableOpacity>
-                        </View>
-                     </View>
+                     <MedicineFormCard 
+                        editingId={editingId}
+                        name={name} setName={setName}
+                        dosage={dosage} setDosage={setDosage}
+                        times={times}
+                        onRemoveTime={(t) => setTimes(times.filter(x => x !== t))}
+                        onAddTimeClick={() => setShowTimePicker(true)}
+                        onCancel={() => { setShowForm(false); setEditingId(null); }}
+                        onSave={handleSaveMedicine}
+                     />
                 )}
 
                 {/* Schedule List */}
                 <Text style={styles.sectionHeader}>Today's Schedule</Text>
                 
+                {showTimePicker && (
+                    <DateTimePicker
+                        value={selectedTime}
+                        mode="time"
+                        is24Hour={true}
+                        display="default"
+                        onChange={handleAddTime}
+                    />
+                )}
+                
                 {medicines.map((med) => (
-                    <View key={med.id} style={styles.medCard}>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                            <View>
-                                <Text style={styles.medName}>{med.name} <Text style={styles.medDosage}>{med.dosage}</Text></Text>
-                                <Text style={styles.medFreq}>{med.frequency}</Text>
-                            </View>
-                            <View style={{flexDirection: 'row', gap: 12}}>
-                                <TouchableOpacity onPress={() => handleEdit(med)}>
-                                    <Ionicons name="pencil" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDelete(med.id)}>
-                                    <Ionicons name="trash-outline" size={20} color={colors.error} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                        
-                        {/* Render pills for each time */}
-                        <View style={styles.timeRow}>
-                            {med.times && med.times.map((time: string) => {
-                                // Check if taken
-                                const isTaken = schedule.find(s => s.medicine_id === med.id && s.time.slice(0,5) === time.slice(0,5)); // slice to match HH:MM
-                                
-                                return (
-                                    <TouchableOpacity 
-                                        key={time} 
-                                        style={[styles.timeSlot, isTaken && styles.timeSlotTaken]}
-                                        onPress={() => handleTakeMedicine(med.id, time)}
-                                    >
-                                        <Text style={[styles.timeText, isTaken && styles.timeTextTaken]}>{time}</Text>
-                                        {isTaken && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
+                    <MedicineCard 
+                        key={med.id}
+                        med={med}
+                        schedule={schedule}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onTakeMedicine={handleTakeMedicine}
+                    />
                 ))}
 
             </ScrollView>
@@ -324,82 +269,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
     },
     addButtonText: { ...fonts.button, color: '#FFF', marginLeft: spacing.xs },
-    formCard: {
-        backgroundColor: colors.surface,
-        padding: spacing.md,
-        borderRadius: borderRadius.lg,
-        marginBottom: spacing.lg,
-        ...shadows.soft,
-    },
-    formTitle: { ...fonts.h3, marginBottom: spacing.md },
-    input: {
-        backgroundColor: colors.inputBackground,
-        padding: spacing.md,
-        borderRadius: borderRadius.md,
-        marginBottom: spacing.md,
-    },
-    label: { ...fonts.caption, color: colors.textLight, marginBottom: spacing.xs },
-    timeList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-    timeChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.surfaceSoft,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 4,
-        borderRadius: borderRadius.round,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    timeChipText: { marginRight: 4, ...fonts.caption },
-    timeAddBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 4,
-    },
-    formActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: spacing.md,
-    },
-    saveButton: {
-        backgroundColor: colors.primary,
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.lg,
-        borderRadius: borderRadius.round,
-    },
-    saveButtonText: { ...fonts.button, color: '#FFF' },
     sectionHeader: { ...fonts.h3, marginBottom: spacing.md, color: colors.text },
-    medCard: {
-        backgroundColor: colors.surface,
-        padding: spacing.md,
-        borderRadius: borderRadius.lg,
-        marginBottom: spacing.md,
-        ...shadows.soft,
-    },
-    medName: { ...fonts.bodyBold, fontSize: 16 },
-    medDosage: { fontWeight: '400', color: colors.textLight, fontSize: 14 },
-    medFreq: { ...fonts.caption, color: colors.textLight, marginBottom: spacing.md },
-    timeRow: { flexDirection: 'row', gap: spacing.sm },
-    timeSlot: {
-        borderWidth: 1,
-        borderColor: colors.primary,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 6,
-        borderRadius: borderRadius.round,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4
-    },
-    timeSlotTaken: {
-        backgroundColor: colors.primary,
-    },
-    timeText: {
-        color: colors.primary,
-        fontWeight: '600',
-        fontSize: 12,
-    },
-    timeTextTaken: {
-        color: '#FFF'
-    }
+
 });

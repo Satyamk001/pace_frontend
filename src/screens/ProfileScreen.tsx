@@ -12,18 +12,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ProfileSkeleton, ProfileSettingsSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
-import { StorageService } from '../services/StorageService';
 import { NotificationService } from '../services/NotificationService';
-import { useOffline } from '../context/OfflineContext';
 import { ExportHelper } from '../utils/ExportHelper';
 import { useSubscription } from '../context/SubscriptionContext';
 import { PainHeatmap } from '../components/PainHeatmap';
+import { PremiumUpsellCard } from '../components/ui/PremiumUpsellCard';
+import { SettingsCardItem } from '../components/ui/SettingsCardItem';
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { signOut, getToken } = useAuth();
     const { user, isLoaded } = useUser();
     const api = createApiService(getToken);
-    const { syncAllData, lastSynced } = useOffline();
     const { isProUser } = useSubscription();
 
     const [calendarStats, setCalendarStats] = useState<any>({});
@@ -38,9 +37,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
     const fetchStats = async () => {
         try {
-            const [allTodos, calendar] = await Promise.all([api.getTodos(), api.getCalendarData()]);
-            await StorageService.syncTodos(allTodos);
-            await StorageService.syncCalendar(calendar);
+            const calendar = await api.getCalendarData();
             setCalendarStats(calendar || {});
         } catch (e) {
             console.error('Error in fetchStats:', e);
@@ -58,7 +55,7 @@ export const ProfileScreen = ({ navigation }: any) => {
     useFocusEffect(useCallback(() => { fetchStats(); loadNotificationState(); }, []));
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
+
 
     const loadNotificationState = async () => {
         const isEnabled = await NotificationService.getNotificationsEnabled();
@@ -76,15 +73,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         });
     };
 
-    const handleSync = async () => {
-        setIsSyncing(true);
-        try {
-            await syncAllData();
-            setDialogConfig({ visible: true, title: "Sync Complete", message: "Your data is backed up safely.", actions: [{ text: "OK", onPress: closeDialog }] });
-        } catch (e) {
-            setDialogConfig({ visible: true, title: "Sync Failed", message: "Please check your network and try again.", actions: [{ text: "OK", onPress: closeDialog }] });
-        } finally { setIsSyncing(false); }
-    };
+
 
     const handleExport = () => {
         if (!isProUser) { navigation.navigate('Premium'); return; }
@@ -133,17 +122,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             ),
             onPress: undefined,
         },
-        {
-            key: 'sync',
-            icon: (isSyncing ? 'sync' : 'sync-outline') as any,
-            label: isSyncing ? 'Syncing…' : 'Sync Data',
-            sub: `Last synced: ${lastSynced ? new Date(lastSynced).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never'}`,
-            right: isSyncing
-                ? <ActivityIndicator size="small" color={colors.primary} />
-                : <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />,
-            onPress: handleSync,
-            disabled: isSyncing,
-        },
+
         {
             key: 'privacy',
             icon: 'shield-checkmark-outline' as const,
@@ -157,6 +136,14 @@ export const ProfileScreen = ({ navigation }: any) => {
             label: 'Export Data',
             right: <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />,
             onPress: handleExport,
+        },
+        {
+            key: 'signout',
+            icon: 'log-out-outline' as const,
+            label: 'Sign Out',
+            onPress: handleSignOut,
+            iconColor: colors.error,
+            labelColor: colors.error,
         },
     ];
 
@@ -217,51 +204,27 @@ export const ProfileScreen = ({ navigation }: any) => {
 
                     {/* Premium upsell */}
                     {!isProUser && (
-                        <TouchableOpacity style={styles.premiumCard} onPress={() => navigation.navigate('Premium')} activeOpacity={0.85}>
-                            <View style={styles.premiumLeft}>
-                                <View style={styles.premiumIcon}>
-                                    <Ionicons name="diamond" size={20} color="#FFF" />
-                                </View>
-                                <View>
-                                    <Text style={styles.premiumTitle}>Pace Pro</Text>
-                                    <Text style={styles.premiumSubtitle}>Unlock advanced insights & themes</Text>
-                                </View>
-                            </View>
-                            <View style={styles.premiumChevron}>
-                                <Ionicons name="chevron-forward" size={14} color={colors.premium} />
-                            </View>
-                        </TouchableOpacity>
+                        <PremiumUpsellCard onPress={() => navigation.navigate('Premium')} />
                     )}
 
                     {/* Settings card layer - Refactored to Grid */}
                     <View style={styles.settingsGrid}>
-                        {settingRows.map((row, i) => (
-                            <TouchableOpacity
+                        {settingRows.map((row: any, i) => (
+                            <SettingsCardItem 
                                 key={row.key}
-                                style={styles.settingsCardItem}
+                                icon={row.icon}
+                                label={row.label}
+                                sub={row.sub}
+                                right={row.right}
                                 onPress={row.onPress}
-                                disabled={row.disabled || !row.onPress}
-                                activeOpacity={row.onPress ? 0.7 : 1}
-                            >
-                                <View style={styles.settingTopRow}>
-                                    <View style={styles.settingIconWrap}>
-                                        <Ionicons name={row.icon} size={20} color={colors.accentDark} />
-                                    </View>
-                                    <View style={styles.settingRight}>{row.right}</View>
-                                </View>
-                                <View style={styles.settingTextContent}>
-                                    <Text style={styles.settingLabel}>{row.label}</Text>
-                                    {row.sub && <Text style={styles.settingSub}>{row.sub}</Text>}
-                                </View>
-                            </TouchableOpacity>
+                                disabled={row.disabled}
+                                iconColor={row.iconColor}
+                                labelColor={row.labelColor}
+                            />
                         ))}
                     </View>
 
-                    {/* Sign out */}
-                    <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.75}>
-                        <Ionicons name="log-out-outline" size={17} color={colors.error} style={{ marginRight: 6 }} />
-                        <Text style={styles.signOutText}>Sign Out</Text>
-                    </TouchableOpacity>
+
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -352,111 +315,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: layout.screenPadding,
     },
 
-    // ── Premium card ─────────────────────────────────────────────────────────
-    premiumCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: colors.premium + '12',
-        borderRadius: borderRadius.l,
-        padding: spacing.m,
-        marginBottom: spacing.l,
-        borderWidth: 1,
-        borderColor: colors.premium + '35',
-    },
-    premiumLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.m,
-    },
-    premiumIcon: {
-        width: 42,
-        height: 42,
-        borderRadius: borderRadius.m,
-        backgroundColor: colors.premium,
-        justifyContent: 'center',
-        alignItems: 'center',
-        ...shadows.soft,
-    },
-    premiumTitle: {
-        fontWeight: '700',
-        color: colors.premium,
-        fontSize: 15,
-        letterSpacing: -0.2,
-    },
-    premiumSubtitle: {
-        fontSize: 12,
-        color: colors.premium,
-        opacity: 0.75,
-        marginTop: 2,
-    },
-    premiumChevron: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
-        backgroundColor: colors.premium + '20',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    // ── Settings Grid ─────────────────────────────────────────────────────────
     settingsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        flexDirection: 'column',
         marginBottom: spacing.m,
-    },
-    settingsCardItem: {
-        width: '48%',
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.lg || 24, // Assuming 24px per specs
-        padding: spacing.m,
-        marginBottom: spacing.m,
-        ...shadows.soft,
-    },
-    settingTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.s,
-    },
-    settingIconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: borderRadius.round,
-        backgroundColor: colors.surfaceSoft,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    settingTextContent: {
-        marginTop: spacing.xs,
-    },
-    settingLabel: {
-        ...typography.bodyBold,
-        fontSize: 14,
-        color: colors.textPrimary,
-        marginBottom: 2,
-    },
-    settingSub: {
-        ...typography.caption,
-        fontSize: 12,
-        color: colors.textSecondary,
-    },
-    settingRight: {
-        // Keeps switches/chevrons vertically aligned with the icon
     },
 
-    // ── Sign out ──────────────────────────────────────────────────────────────
-    signOutBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: spacing.m,
-        marginTop: spacing.xs,
-    },
-    signOutText: {
-        color: colors.error,
-        fontWeight: '600',
-        fontSize: 15,
-    },
+
 });

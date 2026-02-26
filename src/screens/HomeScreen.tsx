@@ -14,6 +14,7 @@ import { useMoodTheme } from '../context/MoodContext';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { NotificationService } from '../services/NotificationService';
 
+
 export const HomeScreen = ({ navigation }: any) => {
   const { getToken, signOut } = useAuth();
   const api = createApiService(getToken);

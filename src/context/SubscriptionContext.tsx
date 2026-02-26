@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
-import { STORAGE_KEYS } from '../services/StorageService';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
 
@@ -18,7 +16,9 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     const { getToken, isLoaded } = useAuth();
 
     useEffect(() => {
-        loadStatus();
+        if (isLoaded) {
+            checkSubscriptionStatus();
+        }
 
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
@@ -29,20 +29,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             subscription.remove();
         };
-    }, []);
-
-    const loadStatus = async () => {
-        try {
-            const storedStatus = await AsyncStorage.getItem(STORAGE_KEYS.SUBSCRIPTION);
-            if (storedStatus !== null) {
-                setIsProUser(storedStatus === 'true');
-            }
-            // we could also fetch from API here via `api.getSubscriptionStatus()`
-            await checkSubscriptionStatus();
-        } catch (error) {
-            console.error('Failed to load subscription status', error);
-        }
-    };
+    }, [isLoaded]);
 
     const checkSubscriptionStatus = async () => {
         if (!isLoaded) return;
@@ -51,7 +38,6 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
             const status = await api.getSubscriptionStatus();
             if (status && typeof status.is_premium === 'boolean') {
                 setIsProUser(status.is_premium);
-                await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, status.is_premium.toString());
             }
         } catch (error) {
             console.error('Failed to verify subscription status from backend', error);
@@ -60,7 +46,6 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
 
     const setProStatus = async (status: boolean) => {
         setIsProUser(status);
-        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, status.toString());
     };
 
     return (

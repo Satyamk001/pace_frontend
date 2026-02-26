@@ -13,6 +13,7 @@ import { BackButton } from '../components/ui/BackButton';
 import { EnergySelector } from '../components/EnergySelector';
 import { NotificationService } from '../services/NotificationService';
 
+
 export const AddTaskScreen = ({ navigation, route }: any) => {
   const { getToken } = useAuth();
   const api = createApiService(getToken);
@@ -52,7 +53,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
     try {
       const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined, repeatType);
       if (hasTime) {
-         await NotificationService.scheduleTodo({...newTodo, title, due_date: dueDate.toISOString(), is_completed: false});
+         await NotificationService.scheduleTodo({...newTodo, title, due_date: dueDate.toISOString(), is_completed: false, repeat_type: repeatType});
       }
       navigation.goBack();
     } catch (error) {

@@ -6,15 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
-import { useOffline } from '../context/OfflineContext';
+
 import { LineChart } from 'react-native-chart-kit';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 
-// Shared skeleton box for loading states
-const SkeletonBox = ({ width, height, borderRadius = 4, style }: any) => (
-    <View style={[{ width, height, borderRadius, backgroundColor: colors.border, opacity: 0.3 }, style]} />
-);
+import { SkeletonBox } from '../components/ui/SkeletonLoader';
+import { StatCard } from '../components/ui/StatCard';
 
 const RANGE_OPTIONS = [
     { label: '30D', value: '30D' },
@@ -25,7 +23,6 @@ const RANGE_OPTIONS = [
 export const WeightScreen = () => {
     const navigation = useNavigation();
     const { getToken } = useAuth();
-    const { isOffline } = useOffline();
     const api = createApiService(getToken);
 
     const [weight, setWeight] = useState('');
@@ -90,89 +87,49 @@ export const WeightScreen = () => {
     };
 
 
-    // Prepare Chart Data mapping
+    // Prepare Chart Data — plot each day individually for accurate trend
     const chartConfig = useMemo(() => {
         if (history.length < 2) return null;
         
-        let displayHistory = [...history];
-        displayHistory.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        let groupedData: { label: string, sum: number, count: number }[] = [];
+        const sorted = [...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         if (selectedRange === 'YEAR') {
-            // Group by Month
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            displayHistory.forEach(h => {
-                const d = new Date(h.date);
-                const label = months[d.getMonth()];
-                let group = groupedData.find(g => g.label === label);
-                if (!group) {
-                    group = { label, sum: 0, count: 0 };
-                    groupedData.push(group);
-                }
-                group.sum += parseFloat(h.weight);
-                group.count += 1;
+            // Group by month for yearly view
+            const monthMap = new Map<string, { sum: number; count: number }>();
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            sorted.forEach(h => {
+                const key = monthNames[new Date(h.date).getMonth()];
+                const entry = monthMap.get(key) || { sum: 0, count: 0 };
+                entry.sum += parseFloat(h.weight);
+                entry.count += 1;
+                monthMap.set(key, entry);
             });
-        } else {
-            // Group by 7-day chunks (1-7, 8-14, 15-21, 22+)
-            displayHistory.forEach(h => {
-                const d = new Date(h.date);
-                const day = d.getDate();
-                let label = '';
-                if (day <= 7) label = '1-7';
-                else if (day <= 14) label = '8-14';
-                else if (day <= 21) label = '15-21';
-                else label = '22+';
-
-                let group = groupedData.find(g => g.label === label);
-                if (!group) {
-                    group = { label, sum: 0, count: 0 };
-                    groupedData.push(group);
-                }
-                group.sum += parseFloat(h.weight);
-                group.count += 1;
-            });
-
-            // Ensure chronological order of buckets
-            const order = ['1-7', '8-14', '15-21', '22+'];
-            groupedData.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+            const labels = Array.from(monthMap.keys());
+            const data = Array.from(monthMap.values()).map(v => v.sum / v.count);
+            if (data.length < 2) {
+                return { labels: [labels[0], labels[0]], data: [data[0], data[0]] };
+            }
+            return { labels, data };
         }
 
-        const labels = groupedData.map(g => g.label);
-        const data = groupedData.map(g => g.sum / g.count);
-
-        // If we grouped it so much that there's only 1 point, line chart breaks. 
-        // Fallback to plotting the raw first/last if that happens, just to draw a line.
-        if (data.length === 1 && displayHistory.length >= 2) {
-             const first = displayHistory[0];
-             const last = displayHistory[displayHistory.length - 1];
-             return {
-                 labels: [
-                     selectedRange === 'YEAR' ? new Date(first.date).toLocaleDateString('en-US', { month: 'short' }) : new Date(first.date).getDate().toString(),
-                     selectedRange === 'YEAR' ? new Date(last.date).toLocaleDateString('en-US', { month: 'short' }) : new Date(last.date).getDate().toString()
-                 ],
-                 data: [parseFloat(first.weight), parseFloat(last.weight)]
-             }
-        }
+        // 30D / MONTH — plot each day individually
+        const data = sorted.map(h => parseFloat(h.weight));
+        
+        // Smart label sampling: show ~6 labels max to prevent overlap
+        const maxLabels = 6;
+        const step = Math.max(1, Math.floor(sorted.length / maxLabels));
+        const labels = sorted.map((h, i) => {
+            if (i === 0 || i === sorted.length - 1 || i % step === 0) {
+                const d = new Date(h.date);
+                return `${d.getDate()}/${d.getMonth() + 1}`;
+            }
+            return '';
+        });
 
         return { labels, data };
     }, [history, selectedRange]);
 
-    const StatCard = ({ label, value, color, icon }: any) => (
-        <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: color + '15' }]}>
-                <Ionicons name={icon} size={18} color={color} />
-            </View>
-            <View>
-                {loading ? (
-                    <SkeletonBox width={40} height={24} style={{ marginBottom: 4 }} />
-                ) : (
-                    <Text style={styles.statValue}>{value.toFixed(1)} <Text style={{fontSize: 12, color: colors.textSecondary}}>kg</Text></Text>
-                )}
-                <Text style={styles.statLabel}>{label}</Text>
-            </View>
-        </View>
-    );
+
 
     return (
         <ScreenLayout edges={['top']} useGradient>
@@ -206,10 +163,10 @@ export const WeightScreen = () => {
                 
                     {/* Primary Stats Grid */}
                     <View style={styles.statsGrid}>
-                        <StatCard label="Lowest" value={stats.min} icon="arrow-down" color={colors.success} />
-                        <StatCard label="Highest" value={stats.max} icon="arrow-up" color={colors.error} />
-                        <StatCard label="Average" value={stats.avg} icon="analytics" color={colors.accent} />
-                        <View style={[styles.statCard, { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 }]} />
+                        <StatCard label="Lowest" value={stats.min} icon="arrow-down" color={colors.success} isLoading={loading} suffix="" />
+                        <StatCard label="Highest" value={stats.max} icon="arrow-up" color={colors.error} isLoading={loading} suffix="" />
+                        <StatCard label="Average" value={stats.avg} icon="analytics" color={colors.accent} isLoading={loading} suffix="" />
+                        <View style={{ width: '48%', backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 }} />
                     </View>
 
                     {/* Chart */}
@@ -301,15 +258,33 @@ export const WeightScreen = () => {
                     {/* History List */}
                     <View style={styles.historyList}>
                          <Text style={styles.sectionHeader}>Log History</Text>
-                         {history.slice().reverse().map((item, index) => (
-                             <View key={index} style={styles.historyItem}>
-                                 <View style={styles.historyDateRow}>
-                                    <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                                    <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                         {history.slice().reverse().map((item, index, arr) => {
+                             const prevItem = arr[index + 1]; // previous day (older, since reversed)
+                             const delta = prevItem ? parseFloat(item.weight) - parseFloat(prevItem.weight) : null;
+                             return (
+                                 <View key={item.id || index} style={styles.historyItem}>
+                                     <View style={styles.historyDateRow}>
+                                        <View style={styles.historyDot} />
+                                        <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+                                     </View>
+                                     <View style={styles.historyRight}>
+                                         {delta !== null && delta !== 0 && (
+                                             <View style={[styles.deltaBadge, { backgroundColor: delta > 0 ? colors.error + '15' : colors.success + '15' }]}>
+                                                 <Ionicons
+                                                     name={delta > 0 ? 'arrow-up' : 'arrow-down'}
+                                                     size={11}
+                                                     color={delta > 0 ? colors.error : colors.success}
+                                                 />
+                                                 <Text style={[styles.deltaText, { color: delta > 0 ? colors.error : colors.success }]}>
+                                                     {Math.abs(delta).toFixed(1)}
+                                                 </Text>
+                                             </View>
+                                         )}
+                                         <Text style={styles.historyValue}>{parseFloat(item.weight).toFixed(1)} <Text style={styles.historyUnit}>kg</Text></Text>
+                                     </View>
                                  </View>
-                                 <Text style={styles.historyValue}>{item.weight} <Text style={{fontSize: 14, color: '#999', fontWeight: 'normal'}}>kg</Text></Text>
-                             </View>
-                         ))}
+                             );
+                         })}
                     </View>
 
                     <View style={{height: 100}} />
@@ -372,36 +347,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: spacing.m,
     },
-    statCard: {
-        width: '48%',
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
-        padding: spacing.m,
-        marginBottom: spacing.m,
-        flexDirection: 'row',
-        alignItems: 'center',
-        ...shadows.soft,
-        borderWidth: 1,
-        borderColor: colors.border + '20',
-    },
-    statIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    statValue: {
-        ...typography.h3,
-        fontSize: 18,
-        color: colors.text,
-    },
-    statLabel: {
-        ...typography.caption,
-        fontSize: 11,
-        color: colors.textSecondary,
-    },
+
     chartCard: {
         backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
@@ -524,17 +470,45 @@ const styles = StyleSheet.create({
     historyDateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
+    },
+    historyDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.accent,
     },
     historyDate: { 
         ...typography.body, 
         color: colors.text,
         fontWeight: '500', 
     },
+    historyRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    deltaBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+        borderRadius: borderRadius.round,
+    },
+    deltaText: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
     historyValue: { 
         ...typography.bodyBold, 
         color: colors.primary,
         fontSize: 18,
+    },
+    historyUnit: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        fontWeight: '400' as const,
     },
 });
 

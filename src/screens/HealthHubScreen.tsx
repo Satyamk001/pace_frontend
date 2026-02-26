@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { createApiService } from '../services/api';
 
+
 // ─────────────────────────────────────────────────────────
 // Module config — colours kept outside theme intentionally
 // as these are semantic health-category colours, not brand UI

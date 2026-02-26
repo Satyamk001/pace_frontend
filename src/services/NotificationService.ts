@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StorageService, STORAGE_KEYS } from './StorageService';
+
 
 // Configure how notifications should be handled when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -54,7 +54,7 @@ export const NotificationService = {
       await this.cancelAll();
     } else {
       await this.requestPermissions();
-      await this.rescheduleAll();
+      // Note: individual screens handle scheduling when notifications are re-enabled
     }
   },
 
@@ -62,18 +62,36 @@ export const NotificationService = {
     await Notifications.cancelAllScheduledNotificationsAsync();
   },
 
-  async rescheduleAll() {
+  async cancelMedicine(medicineId: string, times: string[] = []) {
+    for (const timeStr of times) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(`med-${medicineId}-${timeStr}`);
+      } catch (e) {
+        // Notification may not exist, ignore
+      }
+    }
+    // Also try without specific times — cancel any remaining med notifications
+    try {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      for (const notif of scheduled) {
+        if (notif.identifier.startsWith(`med-${medicineId}-`)) {
+          await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to cancel medicine notifications:', e);
+    }
+  },
+
+  async rescheduleAll(todos: any[] = [], medicines: any[] = []) {
     await this.cancelAll();
     
     // Reschedule Todos
-    const todos = await StorageService.getItem(STORAGE_KEYS.TODOS) || [];
     for (const todo of todos) {
       await this.scheduleTodo(todo);
     }
 
     // Reschedule Medicines
-    // Consume from the exact synced offline DB state
-    const medicines = await StorageService.getItem(STORAGE_KEYS.MEDICINES) || [];
     for (const med of medicines) {
       if (!med.is_taken || !med.is_completed) {
         await this.scheduleMedicine(med);
@@ -97,21 +115,21 @@ export const NotificationService = {
       let trigger: any = {};
       
       if (repeatType === 'DAILY') {
-          trigger = { hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+          trigger = { type: 'calendar', hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
       } else if (repeatType === 'WEEKLY') {
           // Expo weekday format: 1=Sun, 2=Mon... JS getDay() returns 0=Sun
-          trigger = { weekday: dueDate.getDay() + 1, hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+          trigger = { type: 'calendar', weekday: dueDate.getDay() + 1, hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
       } else if (repeatType === 'MONTHLY') {
-          trigger = { day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+          trigger = { type: 'calendar', day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
       } else if (repeatType === 'YEARLY') {
-          trigger = { month: dueDate.getMonth(), day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
+          trigger = { type: 'calendar', month: dueDate.getMonth(), day: dueDate.getDate(), hour: dueDate.getHours(), minute: dueDate.getMinutes(), repeats: true };
       } else {
           // Explicitly validate that the localized single-occurrence Date is securely in the future
           // Expo absolute Date triggers will FIRE INSTANTLY if evaluating to the past.
           if (dueDate.getTime() <= Date.now()) {
             return;
           }
-          trigger = { date: dueDate };
+          trigger = { type: 'date', date: dueDate };
       }
 
       if (Platform.OS === 'android') {
@@ -158,6 +176,7 @@ export const NotificationService = {
         if (isNaN(hours) || isNaN(minutes)) continue;
 
         let trigger: any = {
+            type: 'calendar',
             hour: hours,
             minute: minutes,
             repeats: isDaily
@@ -172,7 +191,7 @@ export const NotificationService = {
                 // If the specific time today has already passed and it doesn't repeat, do not schedule.
                 continue;
             }
-            trigger = { date: triggerDate };
+            trigger = { type: 'date', date: triggerDate };
         }
 
         if (Platform.OS === 'android') {

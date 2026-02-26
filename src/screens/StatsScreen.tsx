@@ -5,12 +5,13 @@ import { colors, typography, spacing, shadows, borderRadius } from '../theme';
 import { createApiService } from '../services/api';
 import { HealthTrendsChart } from '../components/HealthTrendsChart';
 import { useFocusEffect } from '@react-navigation/native';
-import { StatsContentSkeleton, SkeletonBox } from '../components/ui/SkeletonLoader';
+import { StatsContentSkeleton } from '../components/ui/SkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { useSubscription } from '../context/SubscriptionContext';
-import { useOffline } from '../context/OfflineContext';
+
 import { BackButton } from '../components/ui/BackButton';
+import { StatCard } from '../components/ui/StatCard';
 
 const RANGE_OPTIONS = [
     { label: '7D', value: '7' },
@@ -21,9 +22,9 @@ const RANGE_OPTIONS = [
 
 export const StatsScreen = ({ navigation }: any) => {
     const { getToken } = useAuth();
-    const api = createApiService(getToken);
     const { isProUser } = useSubscription();
-    const { isOffline } = useOffline();
+
+    const api = createApiService(getToken);
 
     const [graphData, setGraphData] = useState<any>(null);
     const [summaryData, setSummaryData] = useState<any>(null);
@@ -106,21 +107,7 @@ export const StatsScreen = ({ navigation }: any) => {
     const hasData = chartData.some(d => d.hasData);
     const summary = summaryData?.summary || {};
 
-    const StatCard = ({ label, value, icon, color, suffix = "" }: any) => (
-        <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: color + '15' }]}>
-                <Ionicons name={icon} size={18} color={color} />
-            </View>
-            <View>
-                {isStatsLoading ? (
-                    <SkeletonBox width={40} height={24} borderRadius={4} style={{ marginBottom: 4 }} />
-                ) : (
-                    <Text style={styles.statValue}>{value}{suffix}</Text>
-                )}
-                <Text style={styles.statLabel}>{label}</Text>
-            </View>
-        </View>
-    );
+
 
     return (
         <ScreenLayout edges={['top']} useGradient>
@@ -155,23 +142,12 @@ export const StatsScreen = ({ navigation }: any) => {
                 >
                     {/* Primary Stats Grid */}
                     <View style={styles.statsGrid}>
-                        <StatCard label="Tasks Done" value={summary.totalTasks || 0} icon="checkmark-circle" color={colors.accent} />
-                        <StatCard label="Current Streak" value={summary.streak || 0} icon="flame" color={colors.accent} suffix="d" />
-                        <StatCard label="Calm Days" value={summary.calmDays || 0} icon="leaf" color={colors.accent} />
-                        <StatCard label="Pain Days" value={summary.painDays || 0} icon="alert-circle" color={colors.accent} />
+                        <StatCard label="Tasks Done" value={summary.totalTasks || 0} icon="checkmark-circle" color={colors.accent} isLoading={isStatsLoading} suffix={summary.completionRate ? ` (${summary.completionRate}%)` : ''} />
+                        <StatCard label="Current Streak" value={summary.streak || 0} icon="flame" color={'#FF9500'} suffix="d" isLoading={isStatsLoading} />
+                        <StatCard label="Calm Days" value={summary.calmDays || 0} icon="leaf" color={colors.success} isLoading={isStatsLoading} suffix="" />
+                        <StatCard label="High Pain Days" value={summary.painDays || 0} icon="alert-circle" color={colors.error} isLoading={isStatsLoading} suffix="" />
                     </View>
 
-                    {/* Offline Lock Boundary Overlay */}
-                    {isOffline && parseInt(selectedRange) > 7 ? (
-                        <View style={{ marginTop: 20 }}>
-                            <View style={styles.emptyIconCircle}>
-                                <Ionicons name="cloud-offline-outline" size={32} color={colors.warning} />
-                            </View>
-                            <Text style={styles.noDataText}>Offline Cache Limit</Text>
-                            <Text style={styles.noDataHint}>Connect to the internet to query extended history.</Text>
-                        </View>
-                    ) : (
-                        <>
                     <View style={styles.chartCard}>
                         <View style={styles.chartHeader}>
                             <View>
@@ -232,8 +208,6 @@ export const StatsScreen = ({ navigation }: any) => {
                                 <Text style={styles.premiumBtnText}>Pro</Text>
                             </View>
                         </TouchableOpacity>
-                    )}
-                    </>
                     )}
 
                     <View style={{ height: 40 }} />
@@ -298,36 +272,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: spacing.m,
     },
-    statCard: {
-        width: '48%',
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
-        padding: spacing.m,
-        marginBottom: spacing.m,
-        flexDirection: 'row',
-        alignItems: 'center',
-        ...shadows.soft,
-        borderWidth: 1,
-        borderColor: colors.border + '20',
-    },
-    statIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    statValue: {
-        ...typography.h3,
-        fontSize: 18,
-        color: colors.text,
-    },
-    statLabel: {
-        ...typography.caption,
-        fontSize: 11,
-        color: colors.textSecondary,
-    },
+
     chartCard: {
         backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
