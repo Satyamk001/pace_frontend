@@ -1,28 +1,45 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+
+type HeatmapMode = 'pain' | 'fatigue';
 
 interface PainHeatmapProps {
     year: number;
-    calendarData: Record<string, { mood?: string; day_type?: string; pain_level?: number }>;
+    calendarData: Record<string, { mood?: string; day_type?: string; pain_level?: number; fatigue_level?: number }>;
     onYearChange?: (year: number) => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-import { Ionicons } from '@expo/vector-icons';
+/** Returns a color for a 0–10 numeric level based on mode. */
+const getLevelColor = (level: number | null | undefined, mode: HeatmapMode, isOutsideYear: boolean): string => {
+    if (isOutsideYear) return 'transparent';
+    if (level == null || level <= 0) return colors.surfaceSoft;
+
+    if (mode === 'pain') {
+        if (level >= 7) return colors.mood.pain;
+        if (level >= 4) return colors.mood.low;
+        return colors.mood.okay;
+    }
+    // fatigue — blue-ish palette
+    if (level >= 7) return '#5B21B6'; // deep purple
+    if (level >= 4) return '#7C3AED'; // medium purple
+    return '#A78BFA';                  // light purple
+};
 
 export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapProps) => {
+    const [mode, setMode] = useState<HeatmapMode>('pain');
 
     const { weeks, monthLabels } = useMemo(() => {
         const weeksArr: any[][] = [];
         const monthLab: { label: string; index: number }[] = [];
-        
+
         const startDate = new Date(year, 0, 1);
         const endDate = new Date(year, 11, 31);
-        
+
         let currentDate = new Date(startDate);
-        // Adjust to Monday
         const dayOfWeek = currentDate.getDay();
         const diff = currentDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
         currentDate.setDate(diff);
@@ -30,10 +47,9 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
         let currentMonth = -1;
         let weekIndex = 0;
 
-        while (currentDate <= endDate || currentDate.getDay() !== 1) { // until next monday
+        while (currentDate <= endDate || currentDate.getDay() !== 1) {
             const week = [];
             for (let i = 0; i < 7; i++) {
-                // If it's a new month (ignore days before start of year)
                 if (currentDate.getMonth() !== currentMonth && currentDate.getFullYear() === year) {
                     currentMonth = currentDate.getMonth();
                     monthLab.push({ label: MONTHS[currentMonth], index: weekIndex });
@@ -41,52 +57,37 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
 
                 const dateStr = currentDate.toISOString().split('T')[0];
                 const data = calendarData[dateStr];
-                
-                // Determine color
-                let color = colors.surfaceSoft; // default empty
-                if (currentDate.getFullYear() !== year) {
-                    color = 'transparent'; // Hide days outside the year
-                } else if (data) {
-                     // In the Pain Tracker context, we use the mood scale colors to represent pain
-                    if (data.pain_level && data.pain_level >= 7 || data.day_type === 'FLARE_UP') {
-                        color = colors.mood.pain;
-                    } else if (data.pain_level && data.pain_level >= 4 || data.day_type === 'LOW_ENERGY') {
-                         color = colors.mood.low;
-                    } else if (data.pain_level && data.pain_level > 0) {
-                         color = colors.mood.okay;
-                    } else if (data.mood === 'GREAT' || data.mood === 'GOOD') {
-                         color = colors.mood.great;
-                    } else if (data.day_type === 'NORMAL') {
-                        color = colors.surfaceSoft; // Normal days with no pain are just soft
-                    }
-                }
-                
-                week.push({ date: dateStr, color });
+                const isOutsideYear = currentDate.getFullYear() !== year;
+
+                const value = mode === 'pain' ? (data?.pain_level ?? null) : (data?.fatigue_level ?? null);
+                const color = getLevelColor(value, mode, isOutsideYear);
+
+                week.push({ date: dateStr, color, value });
                 currentDate.setDate(currentDate.getDate() + 1);
             }
             weeksArr.push(week);
             weekIndex++;
         }
         return { weeks: weeksArr, monthLabels: monthLab };
-    }, [year, calendarData]);
+    }, [year, calendarData, mode]);
 
     return (
         <View style={styles.container}>
              <View style={styles.header}>
-                 <Text style={styles.title}>Pain Frequency</Text>
+                 <Text style={styles.title}>{mode === 'pain' ? 'Pain' : 'Fatigue'} Tracker</Text>
                  <View style={styles.yearSelector}>
-                     <Ionicons 
-                         name="chevron-back" 
-                         size={18} 
-                         color={colors.textSecondary} 
+                     <Ionicons
+                         name="chevron-back"
+                         size={18}
+                         color={colors.textSecondary}
                          onPress={() => onYearChange?.(year - 1)}
                          suppressHighlighting
                      />
                      <Text style={styles.subtitle}>{year}</Text>
-                     <Ionicons 
-                         name="chevron-forward" 
-                         size={18} 
-                         color={year < new Date().getFullYear() ? colors.textSecondary : colors.border} 
+                     <Ionicons
+                         name="chevron-forward"
+                         size={18}
+                         color={year < new Date().getFullYear() ? colors.textSecondary : colors.border}
                          onPress={() => {
                              if (year < new Date().getFullYear()) {
                                  onYearChange?.(year + 1);
@@ -96,14 +97,14 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                      />
                  </View>
              </View>
-             
+
              <View style={styles.heatmapContainer}>
                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     <View>
                         {/* X-Axis Labels */}
                         <View style={styles.xAxisLabels}>
                             {monthLabels.map((m, i) => (
-                                <Text key={i} style={[styles.axisText, { left: m.index * (12 + 4) }]}>
+                                <Text key={i} style={[styles.axisText, { left: m.index * (16 + 4) }]}>
                                     {m.label}
                                 </Text>
                             ))}
@@ -113,11 +114,15 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                         <View style={styles.grid}>
                              {weeks.map((week, wIndex) => (
                                  <View key={wIndex} style={styles.weekColumn}>
-                                     {week.map((day, dIndex) => (
-                                         <View 
-                                            key={dIndex} 
-                                            style={[styles.node, { backgroundColor: day.color }]} 
-                                         />
+                                     {week.map((day: any, dIndex: number) => (
+                                         <View
+                                            key={dIndex}
+                                            style={[styles.node, { backgroundColor: day.color }]}
+                                         >
+                                            {day.value != null && day.value > 0 && (
+                                                <Text style={styles.nodeText}>{day.value}</Text>
+                                            )}
+                                         </View>
                                      ))}
                                  </View>
                              ))}
@@ -126,16 +131,26 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                  </ScrollView>
              </View>
 
-             {/* Legend */}
-             <View style={styles.legend}>
-                <Text style={styles.legendText}>Less</Text>
-                <View style={styles.legendSwatches}>
-                    <View style={[styles.node, { backgroundColor: colors.surfaceSoft }]} />
-                    <View style={[styles.node, { backgroundColor: colors.mood.okay }]} />
-                    <View style={[styles.node, { backgroundColor: colors.mood.low }]} />
-                    <View style={[styles.node, { backgroundColor: colors.mood.pain }]} />
+             {/* Mode Toggle */}
+             <View style={styles.footer}>
+                <View style={styles.toggleRow}>
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, mode === 'pain' && styles.toggleBtnActive]}
+                        onPress={() => setMode('pain')}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="fitness-outline" size={14} color={mode === 'pain' ? '#fff' : colors.textSecondary} />
+                        <Text style={[styles.toggleText, mode === 'pain' && styles.toggleTextActive]}>Pain</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, mode === 'fatigue' && styles.toggleBtnActiveFatigue]}
+                        onPress={() => setMode('fatigue')}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="battery-half-outline" size={14} color={mode === 'fatigue' ? '#fff' : colors.textSecondary} />
+                        <Text style={[styles.toggleText, mode === 'fatigue' && styles.toggleTextActive]}>Fatigue</Text>
+                    </TouchableOpacity>
                 </View>
-                <Text style={styles.legendText}>More</Text>
              </View>
         </View>
     );
@@ -191,23 +206,68 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     node: {
-        width: 12,
-        height: 12,
+        width: 16,
+        height: 16,
         borderRadius: 3,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
     },
-    legend: {
+    nodeText: {
+        fontSize: 8,
+        fontWeight: '700' as const,
+        color: '#fff',
+        lineHeight: 10,
+    },
+    // Footer: toggle + scale
+    footer: {
+        marginTop: spacing.m,
+        gap: 10,
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    toggleBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: spacing.m,
-        alignSelf: 'flex-start',
-        gap: spacing.s,
+        gap: 5,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+        backgroundColor: colors.surfaceSoft,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
-    legendSwatches: {
+    toggleBtnActive: {
+        backgroundColor: colors.mood.pain,
+        borderColor: colors.mood.pain,
+    },
+    toggleBtnActiveFatigue: {
+        backgroundColor: '#7C3AED',
+        borderColor: '#7C3AED',
+    },
+    toggleText: {
+        fontSize: 12,
+        fontWeight: '600' as const,
+        color: colors.textSecondary,
+    },
+    toggleTextActive: {
+        color: '#fff',
+    },
+    scaleRow: {
         flexDirection: 'row',
         gap: 4,
     },
-    legendText: {
-        ...typography.caption,
-        fontSize: 11,
-    }
+    scaleNode: {
+        width: 22,
+        height: 22,
+        borderRadius: 4,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    scaleNodeText: {
+        fontSize: 9,
+        fontWeight: '700' as const,
+        color: '#fff',
+    },
 });

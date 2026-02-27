@@ -158,7 +158,9 @@ const MainAppContent = () => {
     const [isSplashVisible, setIsSplashVisible] = React.useState(true);
     
     React.useEffect(() => {
-        NotificationService.init();
+        NotificationService.init().then(() => {
+            NotificationService.debugListScheduled();
+        });
     }, []);
 
     return (
