@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     cardRow: {
         flexDirection: 'row',
         marginBottom: 16,
-        paddingHorizontal: 24,
+        // paddingHorizontal: 8,
     },
     cardTimeCol: {
         width: 60,
