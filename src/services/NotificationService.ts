@@ -7,10 +7,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ────────────────────────────────────────────────────────────────────
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,   // heads-up / pop-over banner
+    shouldShowList: true,     // appears in notification shade
     shouldPlaySound: true,
     shouldSetBadge: false,
-  } as Notifications.NotificationBehavior),
+  } as any),
 });
 
 const TAG = '[NotificationService]';
@@ -44,6 +45,22 @@ async function cancelByPrefix(prefix: string): Promise<void> {
   }
 }
 
+/**
+ * FIX Bug 4: Always request permissions before scheduling.
+ * Returns true if granted, false otherwise.
+ */
+async function ensurePermissions(): Promise<boolean> {
+  if (!isNative) return false;
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status === 'granted') return true;
+
+  // Ask the OS
+  const { status: newStatus } = await Notifications.requestPermissionsAsync();
+  const granted = newStatus === 'granted';
+  console.log(TAG, 'Permission re-check:', granted ? 'GRANTED ✅' : 'DENIED ❌');
+  return granted;
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Public Service
 // ────────────────────────────────────────────────────────────────────
@@ -66,12 +83,15 @@ export const NotificationService = {
       console.log(TAG, 'Android notification channel "default" created');
     }
 
-    // First launch → enable notifications and request permission
+    // FIX Bug 4: Always request permissions on every init, not just once.
+    // We still store the enabled flag so the toggle in ProfileScreen works.
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
     if (stored === null) {
-      await this.setNotificationsEnabled(true);
-      await this.requestPermissions();
+      // First launch — set enabled true and request
+      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'true');
     }
+    // Always request on every launch so users who previously denied can grant
+    await this.requestPermissions();
 
     console.log(TAG, 'init() — done');
   },
@@ -154,6 +174,13 @@ export const NotificationService = {
       if (todo.is_completed) { console.log(TAG, 'scheduleTodo — task completed, skipping'); return; }
       if (!todo.due_date) { console.log(TAG, 'scheduleTodo — no due_date, skipping'); return; }
 
+      // FIX Bug 4: ensure permissions before scheduling
+      const hasPermission = await ensurePermissions();
+      if (!hasPermission) {
+        console.warn(TAG, 'scheduleTodo — no permission, skipping');
+        return;
+      }
+
       const identifier = `todo-${todo.id}`;
       await safeCancel(identifier);
 
@@ -218,7 +245,7 @@ export const NotificationService = {
         trigger,
       });
 
-      console.log(TAG, `scheduleTodo ✅ id=${identifier} type=${repeatType} date=${dueDate.toISOString()}`);
+      console.log(TAG, `scheduleTodo ✅ id=${identifier} type=${repeatType} local=${dueDate.toLocaleString()}`);
     } catch (e) {
       console.error(TAG, 'scheduleTodo FAILED:', e);
     }
@@ -235,8 +262,16 @@ export const NotificationService = {
         return;
       }
 
-      // Cancel all existing notifications for this medicine first
+      // FIX Bug 4: ensure permissions before scheduling
+      const hasPermission = await ensurePermissions();
+      if (!hasPermission) {
+        console.warn(TAG, 'scheduleMedicine — no permission, skipping');
+        return;
+      }
+
       await cancelByPrefix(`med-${medicine.id}`);
+
+      const now = new Date();
 
       for (const timeStr of medicine.times) {
         if (typeof timeStr !== 'string') continue;
@@ -248,28 +283,48 @@ export const NotificationService = {
         const minutes = parseInt(parts[1], 10);
         if (isNaN(hours) || isNaN(minutes)) continue;
 
-        const identifier = `med-${medicine.id}-${timeStr}`;
+        // FIX: DAILY trigger uses Android's inexact AlarmManager.setRepeating()
+        // which the OS can delay by 1-3 min for battery savings.
+        // Instead, schedule 30 individual exact DATE triggers (one per day).
+        // Expo's DATE trigger uses setExactAndAllowWhileIdle → fires on time.
+        let scheduled = 0;
+        for (let day = 0; day <= 60 && scheduled < 30; day++) {
+          const fireTime = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + day,
+            hours,
+            minutes,
+            0,
+            0,
+          );
 
-        // Medicine reminders are always daily repeating
-        const trigger: Notifications.NotificationTriggerInput = {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: hours,
-          minute: minutes,
-          channelId: Platform.OS === 'android' ? 'default' : undefined,
-        } as any;
+          // Skip times already in the past
+          if (fireTime.getTime() <= now.getTime()) continue;
 
-        await Notifications.scheduleNotificationAsync({
-          identifier,
-          content: {
-            title: '💊 Medicine Reminder',
-            body: `Time to take ${medicine.name}`,
-            data: { medicineId: medicine.id },
-            sound: 'default',
-          },
-          trigger,
-        });
+          // Unique id encodes medicine + time slot + date so cancelByPrefix works
+          const dateKey = `${fireTime.getFullYear()}${String(fireTime.getMonth() + 1).padStart(2, '0')}${String(fireTime.getDate()).padStart(2, '0')}`;
+          const identifier = `med-${medicine.id}-${timeStr}-${dateKey}`;
 
-        console.log(TAG, `scheduleMedicine ✅ id=${identifier} at ${timeStr}`);
+          await Notifications.scheduleNotificationAsync({
+            identifier,
+            content: {
+              title: '💊 Medicine Reminder',
+              body: `Time to take ${medicine.name}`,
+              data: { medicineId: medicine.id },
+              sound: 'default',
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: fireTime,
+              channelId: Platform.OS === 'android' ? 'default' : undefined,
+            } as any,
+          });
+
+          scheduled++;
+        }
+
+        console.log(TAG, `scheduleMedicine ✅ med-${medicine.id} at ${timeStr} (${scheduled} exact daily triggers)`);
       }
     } catch (e) {
       console.error(TAG, 'scheduleMedicine FAILED:', e);

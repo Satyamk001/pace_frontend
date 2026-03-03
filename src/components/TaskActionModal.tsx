@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Platform } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDatePicker } from './ui/CustomDatePicker';
@@ -116,8 +116,14 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.overlay}>
-                <View style={styles.modalContainer}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                <ScrollView 
+                    contentContainerStyle={styles.overlay} 
+                    keyboardShouldPersistTaps="handled"
+                    bounces={false}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.modalContainer}>
                     <View style={styles.header}>
                         <Text style={styles.title}>
                             {mode === 'MENU' ? 'Task Options' : mode === 'EDIT' ? 'Edit Task' : 'Add Note'}
@@ -269,15 +275,16 @@ export const TaskActionModal = ({ visible, onClose, todo, onUpdate, onDelete }: 
                         </View>
                     )}
 
-                </View>
-            </View>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
     overlay: {
-        flex: 1,
+        flexGrow: 1,
         backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         padding: spacing.l

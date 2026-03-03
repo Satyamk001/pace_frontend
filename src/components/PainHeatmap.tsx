@@ -1,17 +1,36 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
+import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 type HeatmapMode = 'pain' | 'fatigue';
 
+interface DayData {
+    mood?: string;
+    day_type?: string;
+    pain_level?: number;
+    fatigue_level?: number;
+    painkiller_count?: number;
+    notes?: string;
+    total_tasks?: number;
+    completion_percent?: number;
+}
+
 interface PainHeatmapProps {
     year: number;
-    calendarData: Record<string, { mood?: string; day_type?: string; pain_level?: number; fatigue_level?: number }>;
+    calendarData: Record<string, DayData>;
     onYearChange?: (year: number) => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const MOOD_EMOJI: Record<string, string> = {
+    GREAT: '😄', GOOD: '🙂', OKAY: '😐', LOW: '😔', BAD: '😢',
+};
+const DAY_TYPE_LABEL: Record<string, string> = {
+    NORMAL: 'Normal day', FLARE_UP: '🔥 Flare-up', LOW_ENERGY: '⚡ Low energy',
+};
 
 /** Returns a color for a 0–10 numeric level based on mode. */
 const getLevelColor = (level: number | null | undefined, mode: HeatmapMode, isOutsideYear: boolean): string => {
@@ -23,14 +42,151 @@ const getLevelColor = (level: number | null | undefined, mode: HeatmapMode, isOu
         if (level >= 4) return colors.mood.low;
         return colors.mood.okay;
     }
-    // fatigue — blue-ish palette
-    if (level >= 7) return '#5B21B6'; // deep purple
-    if (level >= 4) return '#7C3AED'; // medium purple
-    return '#A78BFA';                  // light purple
+    if (level >= 7) return '#5B21B6';
+    if (level >= 4) return '#7C3AED';
+    return '#A78BFA';
 };
+
+// ─── Day Detail Modal ────────────────────────────────────────────────────────
+
+interface DayDetailModalProps {
+    visible: boolean;
+    date: string | null;
+    data: DayData | null;
+    onClose: () => void;
+}
+
+const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) => {
+    if (!date || !data) return null;
+
+    const [y, m, d] = date.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const formatted = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    const hasData = data.pain_level != null || data.fatigue_level != null || data.mood;
+
+    const StatCard = ({ icon, label, value, fullWidth = false }: { icon: string; label: string; value: string; fullWidth?: boolean }) => (
+        <View style={[modalStyles.statCard, fullWidth && { width: '100%' }]}>
+            <View style={modalStyles.statCardHeader}>
+                <Ionicons name={icon as any} size={16} color={colors.primary} />
+                <Text style={modalStyles.statLabel}>{label}</Text>
+            </View>
+            <Text style={modalStyles.statValue}>{value}</Text>
+        </View>
+    );
+
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <Pressable style={modalStyles.overlay} onPress={onClose}>
+                <Pressable style={modalStyles.sheet} onPress={() => {}}>
+                    {/* Handle */}
+                    <View style={modalStyles.handle} />
+
+                    {/* Date header */}
+                    <Text style={modalStyles.dateText}>{formatted}</Text>
+
+                    {data.day_type && (
+                        <View style={modalStyles.dayTypePill}>
+                            <Text style={modalStyles.dayTypeText}>{DAY_TYPE_LABEL[data.day_type] ?? data.day_type}</Text>
+                        </View>
+                    )}
+
+                    {!hasData ? (
+                        <View style={modalStyles.emptyState}>
+                            <Ionicons name="clipboard-outline" size={36} color={colors.border} />
+                            <Text style={modalStyles.emptyText}>No health check-in recorded for this day.</Text>
+                        </View>
+                    ) : (
+                        <View style={modalStyles.statsContainer}>
+                            <View style={modalStyles.statsGrid}>
+                                {data.mood != null && (
+                                    <StatCard
+                                        icon="happy-outline"
+                                        label="Mood"
+                                        value={`${MOOD_EMOJI[data.mood] ?? ''} ${data.mood}`}
+                                    />
+                                )}
+                                {data.pain_level != null && (
+                                    <StatCard
+                                        icon="fitness-outline"
+                                        label="Pain"
+                                        value={`${data.pain_level}/10`}
+                                    />
+                                )}
+                                {data.fatigue_level != null && (
+                                    <StatCard
+                                        icon="battery-half-outline"
+                                        label="Fatigue"
+                                        value={`${data.fatigue_level}/10`}
+                                    />
+                                )}
+                                {(data.painkiller_count != null && data.painkiller_count > 0) && (
+                                    <StatCard
+                                        icon="medical-outline"
+                                        label="Pills"
+                                        value={`${data.painkiller_count}`}
+                                    />
+                                )}
+                            </View>
+
+                            {data.total_tasks != null && data.total_tasks > 0 && (
+                                <View style={modalStyles.taskCard}>
+                                    <View style={modalStyles.taskCardHeader}>
+                                        <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.success} />
+                                        <Text style={modalStyles.taskCardTitle}>Daily Tasks</Text>
+                                    </View>
+                                    <View style={modalStyles.taskProgressBg}>
+                                        <View style={[modalStyles.taskProgressFill, { width: `${data.completion_percent ?? 0}%` }]} />
+                                    </View>
+                                    <Text style={modalStyles.taskCardSubtitle}>
+                                        {data.completion_percent ?? 0}% completed ({data.total_tasks} total)
+                                    </Text>
+                                </View>
+                            )}
+
+                            {data.notes ? (
+                                <View style={modalStyles.notesCard}>
+                                    <View style={modalStyles.notesCardHeader}>
+                                        <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+                                        <Text style={modalStyles.notesCardTitle}>Notes</Text>
+                                    </View>
+                                    <Text style={modalStyles.notesText}>{data.notes}</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    )}
+
+                    <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+                        <Text style={modalStyles.closeBtnText}>Close</Text>
+                    </TouchableOpacity>
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+};
+
+// ─── PainHeatmap ─────────────────────────────────────────────────────────────
 
 export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapProps) => {
     const [mode, setMode] = useState<HeatmapMode>('pain');
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
+    const handleDayPress = (date: string, isOutside: boolean) => {
+        if (isOutside) return;
+        const data = calendarData[date];
+        if (!data && !isToday(date)) return; // nothing to show for empty days not today
+        setSelectedDate(date);
+        setModalVisible(true);
+    };
+
+    const isToday = (date: string) => {
+        const now = new Date();
+        const y = String(now.getFullYear());
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return date === `${y}-${m}-${d}`;
+    };
 
     const { weeks, monthLabels } = useMemo(() => {
         const weeksArr: any[][] = [];
@@ -55,14 +211,20 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                     monthLab.push({ label: MONTHS[currentMonth], index: weekIndex });
                 }
 
-                const dateStr = currentDate.toISOString().split('T')[0];
+                // Use local date key — avoids UTC-shift on IST
+                const yy = currentDate.getFullYear();
+                const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(currentDate.getDate()).padStart(2, '0');
+                const dateStr = `${yy}-${mm}-${dd}`;
+
                 const data = calendarData[dateStr];
                 const isOutsideYear = currentDate.getFullYear() !== year;
 
                 const value = mode === 'pain' ? (data?.pain_level ?? null) : (data?.fatigue_level ?? null);
                 const color = getLevelColor(value, mode, isOutsideYear);
+                const hasData = !!data;
 
-                week.push({ date: dateStr, color, value });
+                week.push({ date: dateStr, color, value, hasData, isOutsideYear });
                 currentDate.setDate(currentDate.getDate() + 1);
             }
             weeksArr.push(week);
@@ -73,6 +235,13 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
 
     return (
         <View style={styles.container}>
+            <DayDetailModal
+                visible={modalVisible}
+                date={selectedDate}
+                data={selectedDate ? (calendarData[selectedDate] ?? null) : null}
+                onClose={() => setModalVisible(false)}
+            />
+
              <View style={styles.header}>
                  <Text style={styles.title}>{mode === 'pain' ? 'Pain' : 'Fatigue'} Tracker</Text>
                  <View style={styles.yearSelector}>
@@ -115,14 +284,21 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                              {weeks.map((week, wIndex) => (
                                  <View key={wIndex} style={styles.weekColumn}>
                                      {week.map((day: any, dIndex: number) => (
-                                         <View
+                                         <TouchableOpacity
                                             key={dIndex}
-                                            style={[styles.node, { backgroundColor: day.color }]}
+                                            style={[
+                                                styles.node,
+                                                { backgroundColor: day.color },
+                                                day.hasData && !day.isOutsideYear && styles.nodeTappable,
+                                            ]}
+                                            onPress={() => handleDayPress(day.date, day.isOutsideYear)}
+                                            activeOpacity={day.isOutsideYear ? 1 : 0.7}
+                                            disabled={day.isOutsideYear}
                                          >
                                             {day.value != null && day.value > 0 && (
                                                 <Text style={styles.nodeText}>{day.value}</Text>
                                             )}
-                                         </View>
+                                         </TouchableOpacity>
                                      ))}
                                  </View>
                              ))}
@@ -155,6 +331,8 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
         </View>
     );
 };
+
+// ─── Heatmap Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
     container: {
@@ -212,13 +390,17 @@ const styles = StyleSheet.create({
         alignItems: 'center' as const,
         justifyContent: 'center' as const,
     },
+    nodeTappable: {
+        // Subtle border to hint tappability for days with data
+        borderWidth: 0.5,
+        borderColor: 'rgba(0,0,0,0.12)',
+    },
     nodeText: {
         fontSize: 8,
         fontWeight: '700' as const,
         color: '#fff',
         lineHeight: 10,
     },
-    // Footer: toggle + scale
     footer: {
         marginTop: spacing.m,
         gap: 10,
@@ -269,5 +451,168 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700' as const,
         color: '#fff',
+    },
+});
+
+// ─── Modal Styles ────────────────────────────────────────────────────────────
+
+const modalStyles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        justifyContent: 'flex-end',
+    },
+    sheet: {
+        backgroundColor: colors.surface,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        paddingHorizontal: spacing.l,
+        paddingTop: spacing.m,
+        paddingBottom: spacing.xl,
+        ...shadows.medium,
+    },
+    handle: {
+        width: 40,
+        height: 4,
+        backgroundColor: colors.border,
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: spacing.m,
+    },
+    dateText: {
+        ...typography.bodyBold,
+        fontSize: 17,
+        color: colors.text,
+        marginBottom: spacing.xs,
+    },
+    dayTypePill: {
+        alignSelf: 'flex-start',
+        backgroundColor: colors.accentSoft,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: borderRadius.round,
+        marginBottom: spacing.m,
+    },
+    dayTypeText: {
+        ...typography.caption,
+        color: colors.primary,
+        fontWeight: '700',
+    },
+    statsContainer: {
+        gap: spacing.m,
+        marginBottom: spacing.l,
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.s,
+    },
+    statCard: {
+        width: '48%',
+        backgroundColor: colors.surfaceSoft,
+        borderRadius: borderRadius.m,
+        padding: spacing.m,
+        borderWidth: 1,
+        borderColor: colors.border + '50',
+    },
+    statCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 4,
+    },
+    statLabel: {
+        ...typography.caption,
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    statValue: {
+        ...typography.bodyBold,
+        fontSize: 16,
+        color: colors.text,
+        marginTop: 2,
+    },
+    taskCard: {
+        backgroundColor: colors.surfaceSoft,
+        borderRadius: borderRadius.m,
+        padding: spacing.m,
+        borderWidth: 1,
+        borderColor: colors.border + '50',
+    },
+    taskCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: spacing.s,
+    },
+    taskCardTitle: {
+        ...typography.bodyBold,
+        fontSize: 14,
+        color: colors.text,
+    },
+    taskProgressBg: {
+        height: 8,
+        backgroundColor: colors.border,
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 8,
+    },
+    taskProgressFill: {
+        height: '100%',
+        backgroundColor: colors.success,
+        borderRadius: 4,
+    },
+    taskCardSubtitle: {
+        ...typography.caption,
+        color: colors.textSecondary,
+        fontWeight: '500',
+    },
+    notesCard: {
+        backgroundColor: colors.surfaceSoft,
+        borderRadius: borderRadius.m,
+        padding: spacing.m,
+        borderWidth: 1,
+        borderColor: colors.border + '50',
+    },
+    notesCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: spacing.s,
+    },
+    notesCardTitle: {
+        ...typography.bodyBold,
+        fontSize: 13,
+        color: colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    notesText: {
+        ...typography.body,
+        color: colors.text,
+        lineHeight: 22,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: spacing.xl,
+        gap: spacing.s,
+    },
+    emptyText: {
+        ...typography.body,
+        color: colors.textSecondary,
+        textAlign: 'center',
+    },
+    closeBtn: {
+        backgroundColor: colors.primary,
+        paddingVertical: spacing.m,
+        borderRadius: borderRadius.l,
+        alignItems: 'center',
+        marginTop: spacing.s,
+    },
+    closeBtnText: {
+        ...typography.bodyBold,
+        color: '#fff',
+        fontSize: 15,
     },
 });

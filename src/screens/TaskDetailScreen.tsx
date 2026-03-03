@@ -90,19 +90,17 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                 repeatType,
             });
 
-            // Reschedule notification dynamically based on updated state
+            // FIX Bug 3: cancel stale notification when task is completed
             if (completed) {
-                // If now completed, no need for notification
-                // Note: To be perfect, we should have a `cancelTodoNotification` but rescheduleAll isn't ideal for single edits. 
-                // For now, if we have time, we either overwrite the old system schedule or ignore. 
-                // We'll just call scheduleTodo, which inherently won't schedule if completed.
+                await NotificationService.cancelTodo(todo.id);
             } else if (hasTime) {
-                // Mock shaping the object so scheduleTodo can read it properly
+                // FIX Bug 2: include repeat_type from current state (not stale todo prop)
                 const mockTodo = {
                   ...todo,
                   title,
                   is_completed: completed,
                   due_date: dueDate.toISOString(),
+                  repeat_type: repeatType,
                 };
                 await NotificationService.scheduleTodo(mockTodo);
             }
@@ -176,7 +174,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
             </View>
 
             <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
             >

@@ -113,9 +113,14 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                 
         try {
             const updated = await api.updateTodoDetails(task.id, { progress, isCompleted });
-            if (updated && !isCompleted && updated.due_date) {
-                const d = new Date(updated.due_date);
-                if (d.getHours() !== 0 || d.getMinutes() !== 0) await NotificationService.scheduleTodo(updated);
+            if (updated) {
+                if (isCompleted) {
+                    // FIX Bug 6: cancel notification when task is completed
+                    await NotificationService.cancelTodo(task.id);
+                } else if (updated.due_date) {
+                    // Reschedule when marking back as incomplete
+                    await NotificationService.scheduleTodo(updated);
+                }
             }
             fetchCalendarStats();
         } catch (e) { console.error(e); }

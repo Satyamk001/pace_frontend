@@ -1,298 +1,323 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView, Keyboard, Dimensions } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
-import { createApiService } from '../services/api';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    ActivityIndicator,
+    Platform,
+    ScrollView,
+    KeyboardAvoidingView
+} from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DateTimeModal } from '../components/DateTimeModal';
-import { CustomDialog } from '../components/ui/CustomDialog';
 import { Ionicons } from '@expo/vector-icons';
 
+import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { createApiService } from '../services/api';
+import { NotificationService } from '../services/NotificationService';
+import { DateTimeModal } from '../components/DateTimeModal';
+import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 import { EnergySelector } from '../components/EnergySelector';
-import { NotificationService } from '../services/NotificationService';
-
 
 export const AddTaskScreen = ({ navigation, route }: any) => {
-  const { getToken } = useAuth();
-  const api = createApiService(getToken);
-  const insets = useSafeAreaInsets();
-  const [title, setTitle] = useState('');
-  const [feedback, setFeedback] = useState('');
-  const [energy, setEnergy] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
-  const [loading, setLoading] = useState(false);
-  const [dialogVisible, setDialogVisible] = useState(false);
-  
-  // Date/Time State
-  const initialDate = route.params?.initialDate ? new Date(route.params.initialDate) : new Date();
-  const [dueDate, setDueDate] = useState(initialDate);
-  const [hasTime, setHasTime] = useState(false);
-  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  const [repeatType, setRepeatType] = useState<string>('NONE');
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate());
-    return d.toISOString().split('T')[0];
-  })();
+    const { getToken } = useAuth();
+    const api = createApiService(getToken);
+    const insets = useSafeAreaInsets();
 
-  const handleTimePress = () => {
-      setShowDateTimePicker(true);
-  };
+    const [title, setTitle] = useState('');
+    const [feedback, setFeedback] = useState('');
+    const [energy, setEnergy] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
+    const [loading, setLoading] = useState(false);
+    const [dialogVisible, setDialogVisible] = useState(false);
 
-  const handleClearTime = () => {
-      setHasTime(false);
-      const d = new Date(dueDate);
-      d.setHours(0, 0, 0, 0);
-      setDueDate(d);
-  };
+    // Date/Time State
+    const initialDate = route.params?.initialDate ? new Date(route.params.initialDate) : new Date();
+    const [dueDate, setDueDate] = useState(initialDate);
+    const [hasTime, setHasTime] = useState(false);
+    const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+    const [repeatType, setRepeatType] = useState<string>('NONE');
 
-  const handleCreate = async () => {
-    if (!title.trim()) return;
-    setLoading(true);
-    try {
-      const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined, repeatType);
-      if (hasTime) {
-         await NotificationService.scheduleTodo({...newTodo, title, due_date: dueDate.toISOString(), is_completed: false, repeat_type: repeatType});
-      }
-      navigation.goBack();
-    } catch (error) {
-      console.error(error);
-      setDialogVisible(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleTimePress = () => {
+        setShowDateTimePicker(true);
+    };
 
-  return (
-    <ScreenLayout edges={['top']}>
-       <CustomDialog 
-        visible={dialogVisible} 
-        title="Error" 
-        message="Failed to create task. Please try again." 
-        onClose={() => setDialogVisible(false)} 
-      />
+    const handleClearTime = () => {
+        setHasTime(false);
+        const d = new Date(dueDate);
+        d.setHours(0, 0, 0, 0);
+        setDueDate(d);
+    };
 
-       <View style={styles.header}>
-            <BackButton />
-            <Text style={styles.headerTitle}>New Task</Text>
-            <View style={{ width: 40 }} /> 
-        </View>
+    const handleCreate = async () => {
+        if (!title.trim()) return;
+        setLoading(true);
+        try {
+            const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined, repeatType);
 
-       <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 60) : 0}
-       >
-         <View style={styles.contentContainer}>
-             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                
-                {/* Title Input */}
-                <TextInput
-                    style={styles.input}
-                    placeholder="What's on your mind?"
-                    value={title}
-                    onChangeText={setTitle}
-                    autoFocus
-                    placeholderTextColor={colors.textLight}
-                    multiline
-                />
+            await NotificationService.scheduleTodo({
+                ...newTodo,
+                title,
+                due_date: dueDate.toISOString(),
+                is_completed: false,
+                repeat_type: repeatType,
+            });
+            navigation.goBack();
+        } catch (error) {
+            console.error(error);
+            setDialogVisible(true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    return (
+        <ScreenLayout edges={['top']}>
+            <CustomDialog
+                visible={dialogVisible}
+                title="Error"
+                message="Failed to create task. Please try again."
+                onClose={() => setDialogVisible(false)}
+            />
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.flex}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 60) : 0}
+            >
+                <View style={styles.contentContainer}>
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* Header Section */}
+                        <View style={styles.header}>
+                            <BackButton />
+                            <Text style={styles.headerTitle}>New Task</Text>
+                            <View style={styles.headerSpacer} />
+                        </View>
 
+                        {/* Hero Title Input */}
+                        <TextInput
+                            style={styles.heroInput}
+                            placeholder="What's on your mind?"
+                            value={title}
+                            onChangeText={setTitle}
+                            autoFocus
+                            placeholderTextColor={colors.textLight}
+                            multiline
+                        />
 
+                        {/* Energy Level Card */}
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Energy Level</Text>
+                            <EnergySelector value={energy} onChange={setEnergy} />
+                        </View>
 
-                {/* Section: Energy Level */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Energy Level</Text>
-                    <EnergySelector value={energy} onChange={setEnergy} />
-                </View>
+                        {/* Schedule Card */}
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Schedule</Text>
+                            <View style={styles.pillRow}>
+                                <TouchableOpacity style={styles.datePill} onPress={() => setShowDateTimePicker(true)} activeOpacity={0.7}>
+                                    <Ionicons name="calendar-clear-outline" size={18} color={colors.textPrimary} />
+                                    <Text style={styles.datePillText}>
+                                        {dueDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </Text>
+                                </TouchableOpacity>
 
-                {/* Section: Schedule */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Schedule</Text>
-                    <View style={styles.pillRow}>
-                            <TouchableOpacity style={styles.datePill} onPress={() => setShowDateTimePicker(true)}>
-                                <Ionicons name="calendar-clear-outline" size={18} color={colors.text} />
-                                <Text style={styles.datePillText}>
-                                {dueDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                </Text>
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.datePill, hasTime && styles.datePillActive]}
+                                    onPress={handleTimePress}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="time-outline" size={18} color={hasTime ? colors.primary : colors.textPrimary} />
+                                    <Text style={[styles.datePillText, hasTime && styles.datePillTextActive]}>
+                                        {hasTime
+                                            ? dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                            : 'All Day'}
+                                    </Text>
+                                    {hasTime && (
+                                        <TouchableOpacity onPress={handleClearTime} style={styles.clearIcon} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                            <Ionicons name="close-circle" size={16} color={colors.primary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
-                            <TouchableOpacity 
-                            style={[styles.datePill, hasTime && { backgroundColor: colors.accentSoft, borderColor: colors.primary }]}
-                            onPress={handleTimePress}
-                            >
-                                <Ionicons name="time-outline" size={18} color={hasTime ? colors.primary : colors.text} />
-                                <Text style={[styles.datePillText, hasTime && { color: colors.primary, fontWeight: '600' }]}>
-                                    {hasTime
-                                        ? dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                        : 'All Day'}
-                                </Text>
-                                {hasTime && (
-                                    <TouchableOpacity onPress={handleClearTime} style={{ marginLeft: 4 }}>
-                                        <Ionicons name="close-circle" size={16} color={colors.primary} />
-                                    </TouchableOpacity>
-                                )}
-                            </TouchableOpacity>
+                        {/* Notes Card */}
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Notes</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Any additional details or context?"
+                                value={feedback}
+                                onChangeText={setFeedback}
+                                placeholderTextColor={colors.textLight}
+                                multiline
+                            />
+                        </View>
+
+                    </ScrollView>
+
+                    {/* Sticky Footer Button */}
+                    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, (!title.trim() || loading) && styles.disabledBtn]}
+                            onPress={handleCreate}
+                            disabled={!title.trim() || loading}
+                            activeOpacity={0.8}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color={colors.buttonPrimaryText} />
+                            ) : (
+                                <Text style={styles.primaryBtnText}>Add Gently</Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </View>
+            </KeyboardAvoidingView>
 
-                {/* Section: Notes/Feedback */}
-                <View style={[styles.section, { marginBottom: 30 }]}>
-                    <Text style={styles.sectionTitle}>Notes</Text>
-                    <TextInput
-                        style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
-                        placeholder="Any additional details or context?"
-                        value={feedback}
-                        onChangeText={setFeedback}
-                        placeholderTextColor={colors.textLight}
-                        multiline
-                    />
-                </View>
-
-             </ScrollView>
-
-             {/* Footer Button */}
-             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
-                <TouchableOpacity 
-                    style={[styles.primaryBtn, (!title.trim() || loading) && styles.disabledBtn]}
-                    onPress={handleCreate}
-                    disabled={!title.trim() || loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFF" />
-                    ) : (
-                        <Text style={styles.primaryBtnText}>Add Gently</Text>
-                    )}
-                </TouchableOpacity>
-             </View>
-         </View>
-       </KeyboardAvoidingView>
-
-        {/* Pickers */}
-       <DateTimeModal 
-            visible={showDateTimePicker}
-            onClose={() => setShowDateTimePicker(false)}
-            initialDate={dueDate}
-            initialRepeatType={repeatType}
-            onSave={(date, rType) => {
-                setDueDate(date);
-                setRepeatType(rType);
-                setHasTime(true);
-            }}
-        />
-    </ScreenLayout>
-  );
+            {/* Pickers */}
+            <DateTimeModal
+                visible={showDateTimePicker}
+                onClose={() => setShowDateTimePicker(false)}
+                initialDate={dueDate}
+                initialRepeatType={repeatType}
+                onSave={(date, rType) => {
+                    setDueDate(date);
+                    setRepeatType(rType);
+                    setHasTime(true);
+                }}
+            />
+        </ScreenLayout>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // Background handled by ScreenLayout
-  },
-  header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: spacing.l,
-      paddingTop: spacing.m,
-      paddingBottom: spacing.m,
-  },
-  headerTitle: {
-      ...typography.subheader,
-      color: colors.text, 
-      fontSize: 18,
-  },
+    flex: {
+        flex: 1,
+    },
+    contentContainer: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    scrollContent: {
+        paddingHorizontal: spacing.l,
+        paddingBottom: spacing.xxl * 2,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.l,
+    },
+    headerTitle: {
+        ...typography.subheader,
+        color: colors.text,
+    },
+    headerSpacer: {
+        width: 40,
+    },
 
-  contentContainer: {
-      flex: 1,
-      justifyContent: 'space-between', 
-  },
-  scrollContent: {
-      paddingHorizontal: spacing.l,
-      paddingBottom: spacing.xxl,
-  },
-  input: {
-      ...typography.header,
-      fontSize: 32,
-      color: colors.text,
-      minHeight: 80,
-      textAlignVertical: 'top',
-      marginBottom: spacing.xl,
-      marginTop: spacing.s,
-  },
-  section: {
-      marginBottom: spacing.xl,
-      gap: spacing.s,
-  },
-  sectionTitle: {
-      ...typography.caption,
-      color: colors.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      fontSize: 12,
-      fontWeight: '600',
-  },
-  pillRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-  },
-  pill: {
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 24, 
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: 'transparent',
-  },
-  pillSelected: {
-        backgroundColor: colors.surfaceSoft,
+    // Hero Input
+    heroInput: {
+        ...typography.h2,
+        color: colors.text,
+        minHeight: 80,
+        textAlignVertical: 'top',
+        marginBottom: spacing.l,
+    },
+
+    // Card System
+    card: {
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.md,
+        padding: spacing.m,
+        marginBottom: spacing.m,
+        borderWidth: 1,
         borderColor: colors.border,
-  },
-  pillText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.textSecondary,
-  },
-  pillTextSelected: {
-      color: colors.text,
-  },
-  datePill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 18,
-      borderRadius: 24,
-      backgroundColor: colors.l2,
-      borderWidth: 1,
-      borderColor: 'transparent',
-  },
-  datePillText: {
-      fontSize: 15,
-      color: colors.text,
-      fontWeight: '500',
-  },
-  footer: {
-      padding: spacing.l,
-      backgroundColor: colors.background, 
-  },
-  primaryBtn: {
-      backgroundColor: colors.primary,
-      height: 56, 
-      borderRadius: 28, 
-      justifyContent: 'center',
-      alignItems: 'center',
-      // ...shadows.soft, // Removed for cleaner flat look
-  },
-  primaryBtnText: {
-      color: '#FFF',
-      fontSize: 18,
-      fontWeight: 'bold',
-  },
-  disabledBtn: {
-      backgroundColor: colors.buttonDisabledBg,
-  }
+        ...shadows.soft,
+    },
+    cardTitle: {
+        ...typography.caption,
+        color: colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: spacing.s,
+    },
+
+    // Pills
+    pillRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.s,
+    },
+    datePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.m,
+        borderRadius: borderRadius.round,
+        backgroundColor: colors.surfaceSoft,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    datePillActive: {
+        backgroundColor: colors.accentSoft,
+        borderColor: colors.primary,
+    },
+    datePillText: {
+        ...typography.bodyBold,
+        color: colors.textPrimary,
+    },
+    datePillTextActive: {
+        color: colors.primary,
+    },
+    clearIcon: {
+        marginLeft: spacing.xs,
+    },
+
+    // Input Field
+    input: {
+        ...typography.body,
+        backgroundColor: colors.inputBackground,
+        padding: spacing.m,
+        borderRadius: borderRadius.s,
+        borderWidth: 1,
+        borderColor: colors.border,
+        minHeight: 100,
+        textAlignVertical: 'top',
+        color: colors.textPrimary,
+    },
+
+    // Footer & Buttons
+    footer: {
+        paddingHorizontal: spacing.l,
+        paddingTop: spacing.m,
+        backgroundColor: colors.background,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    primaryBtn: {
+        backgroundColor: colors.primary,
+        paddingVertical: spacing.m,
+        borderRadius: borderRadius.l,
+        justifyContent: 'center',
+        alignItems: 'center',
+        ...shadows.medium,
+    },
+    primaryBtnText: {
+        ...typography.button,
+    },
+    disabledBtn: {
+        backgroundColor: colors.buttonDisabledBg,
+        shadowOpacity: 0,
+        elevation: 0,
+    }
 });

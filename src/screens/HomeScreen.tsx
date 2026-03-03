@@ -77,10 +77,7 @@ export const HomeScreen = ({ navigation }: any) => {
           const updatedTodo = await api.updateTodoDetails(id, { dueDate: newDate });
           
           if (updatedTodo && updatedTodo.due_date && !updatedTodo.is_completed) {
-            const hasTime = new Date(updatedTodo.due_date).getHours() !== 0 || new Date(updatedTodo.due_date).getMinutes() !== 0;
-            if (hasTime) {
-                await NotificationService.scheduleTodo(updatedTodo);
-            }
+            await NotificationService.scheduleTodo(updatedTodo);
           }
           
           fetchData();
@@ -284,7 +281,13 @@ export const HomeScreen = ({ navigation }: any) => {
                             t.id === todo.id ? {...t, progress: newProgress, is_completed: newCompletedState} : t
                         ));
                         try {
-                            await api.updateTodoDetails(todo.id, { progress: newProgress, isCompleted: newCompletedState });
+                            const updated = await api.updateTodoDetails(todo.id, { progress: newProgress, isCompleted: newCompletedState });
+                            // FIX Bug 7: sync notifications with task completion state
+                            if (newCompletedState) {
+                                await NotificationService.cancelTodo(todo.id);
+                            } else if (updated?.due_date) {
+                                await NotificationService.scheduleTodo(updated);
+                            }
                             fetchData();
                         } catch (e) {
                             console.error(e);

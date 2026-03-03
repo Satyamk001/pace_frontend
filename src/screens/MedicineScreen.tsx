@@ -49,6 +49,11 @@ export const MedicineScreen = () => {
             setMedicines(meds || []);
             const history = await api.getIntakeHistory(today);
             setSchedule(history || []);
+
+            // Refresh the 30-day exact-trigger window every time the screen loads
+            for (const med of meds || []) {
+                await NotificationService.scheduleMedicine(med);
+            }
         } catch (error) {
             // silent catch
         }
@@ -174,11 +179,11 @@ export const MedicineScreen = () => {
             </View>
 
             <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
             >
-                <ScrollView contentContainerStyle={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                 
                 {/* Add New Button */}
                 {!showForm && (

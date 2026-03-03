@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
-import { createApiService } from '../services/api';
-
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
+import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { createApiService } from '../services/api';
 import { CustomSlider } from '../components/ui/CustomSlider';
 import { MoodSelector } from '../components/MoodSelector';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
@@ -20,225 +30,303 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const [fatigue, setFatigue] = useState(0);
   const [mood, setMood] = useState('GOOD');
   const [notes, setNotes] = useState('');
+  const [painkillerCount, setPainkillerCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-      fetchTodayData();
+    fetchTodayData();
   }, []);
 
   const fetchTodayData = async () => {
-      try {
-          const today = getLocalDateKey(new Date());
-          const [log, metrics] = await Promise.all([
-              api.getDailyLog(today).catch(() => null),
-              api.getHealthMetrics(today).catch(() => null) // Returns null if 404
-          ]);
+    try {
+      const today = getLocalDateKey(new Date());
+      const [log, metrics] = await Promise.all([
+        api.getDailyLog(today).catch(() => null),
+        api.getHealthMetrics(today).catch(() => null)
+      ]);
 
-          if (log && log.mood) setMood(log.mood);
-          if (metrics) {
-              setPain(metrics.pain_level || 0);
-              setFatigue(metrics.fatigue_level || 0);
-              setNotes(metrics.notes || '');
-              setIsUpdate(true);
-          }
-      } catch (e) {
-          console.log("No existing data for today or error fetching", e);
-      } finally {
-          setFetching(false);
+      if (log && log.mood) setMood(log.mood);
+      if (metrics) {
+        setPain(metrics.pain_level || 0);
+        setFatigue(metrics.fatigue_level || 0);
+        setNotes(metrics.notes || '');
+        setPainkillerCount(metrics.painkiller_count || 0);
+        setIsUpdate(true);
       }
+    } catch (e) {
+      console.log("No existing data for today or error fetching", e);
+    } finally {
+      setFetching(false);
+    }
   };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
-        const today = getLocalDateKey(new Date());
-        
-        // Log Mood
-        await api.logDay(today, undefined, mood);
+      const today = getLocalDateKey(new Date());
 
-        // Log Metrics
-        await api.logHealthMetrics({
-            date: today,
-            painLevel: Math.round(pain),
-            fatigueLevel: Math.round(fatigue),
-            mood,
-            notes
-        });
-        
-        navigation.goBack();
+      await api.logDay(today, undefined, mood);
+      await api.logHealthMetrics({
+        date: today,
+        painLevel: Math.round(pain),
+        fatigueLevel: Math.round(fatigue),
+        mood,
+        notes,
+        painkillerCount,
+      });
+
+      navigation.goBack();
     } catch (error) {
-        console.error(error);
-        alert('Failed to log health');
+      console.error(error);
+      alert('Failed to log health');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
-  if (fetching) {
-      return (
-          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-              <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-      );
-  }
-
   const insets = useSafeAreaInsets();
+
+  if (fetching) {
+    return (
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <ScreenLayout edges={['top']}>
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-            style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
-                {/* Header with Back Button */}
-                <View style={styles.header}>
-                    <BackButton />
-                    <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
-                    <View style={{width: 24}} /> 
-                </View>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <BackButton />
+            <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-                <Text style={styles.title}>How do you feel?</Text>
-                <Text style={styles.subtitle}>Be honest. No judgment here.</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>How do you feel?</Text>
+            <Text style={styles.subtitle}>Be honest. No judgment here.</Text>
+          </View>
 
-                <CustomSlider 
-                    label="Pain Level" 
-                    value={pain} 
-                    onValueChange={setPain} 
-                    color={colors.chart.pain}
-                    max={10}
-                    step={0.1} 
-                />
-                
-                <CustomSlider 
-                    label="Fatigue Level" 
-                    value={fatigue} 
-                    onValueChange={setFatigue} 
-                    color={colors.chart.fatigue}
-                    max={10}
-                    step={0.1}
-                />
-                
-                <Text style={styles.label}>Mood</Text>
-                <View style={{ marginBottom: spacing.l }}>
-                    <MoodSelector selectedMood={mood} onSelectMood={setMood} />
-                </View>
-
-                <Text style={styles.label}>Notes</Text>
-                <TextInput 
-                    style={styles.input} 
-                    multiline 
-                    placeholder="Anything else?" 
-                    value={notes} 
-                    onChangeText={setNotes} 
-                    placeholderTextColor={colors.textLight}
-                />
-            </ScrollView>
-
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={loading}>
-                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>{isUpdate ? 'Update' : 'Save Check-in'}</Text>}
-                </TouchableOpacity>
+          {/* Vitals Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Vitals</Text>
+            <View style={styles.sliderContainer}>
+              <CustomSlider
+                label="Pain Level"
+                value={pain}
+                onValueChange={setPain}
+                color={colors.chart.pain}
+                max={10}
+                step={0.1}
+              />
             </View>
-        </KeyboardAvoidingView>
+            <CustomSlider
+              label="Fatigue Level"
+              value={fatigue}
+              onValueChange={setFatigue}
+              color={colors.chart.fatigue}
+              max={10}
+              step={0.1}
+            />
+          </View>
+
+          {/* Mood Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Mood</Text>
+            <MoodSelector selectedMood={mood} onSelectMood={setMood} />
+          </View>
+
+          {/* Medication Card */}
+          <View style={[styles.card, styles.rowCard]}>
+            <Text style={styles.cardTitleInline}>Painkillers Taken</Text>
+            <View style={styles.stepperRow}>
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => setPainkillerCount(c => Math.max(0, c - 1))}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="remove" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
+              <Text style={styles.stepperValue}>{painkillerCount}</Text>
+
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => setPainkillerCount(c => c + 1)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Notes Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Notes</Text>
+            <TextInput
+              style={styles.input}
+              multiline
+              placeholder="Any specific symptoms or triggers?"
+              value={notes}
+              onChangeText={setNotes}
+              placeholderTextColor={colors.textLight}
+            />
+          </View>
+
+        </ScrollView>
+
+        {/* Sticky Footer */}
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.l) }]}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
+            {loading ? (
+              <ActivityIndicator color={colors.buttonPrimaryText} />
+            ) : (
+              <Text style={styles.saveBtnText}>{isUpdate ? 'Update Check-in' : 'Save Check-in'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
-    // Background and padding handled by ScreenLayout but we keep padding info
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: spacing.l,
+    paddingBottom: spacing.xxl * 2,
   },
   header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.l,
-      // paddingTop: spacing.m,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.l,
   },
   headerTitle: {
-      ...typography.subheader,
-      color: colors.text,
+    ...typography.subheader,
+    color: colors.text,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  titleContainer: {
+    marginBottom: spacing.l,
   },
   title: {
-    ...typography.header,
+    ...typography.h2,
     color: colors.primary,
     marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.body,
-    marginBottom: spacing.xl,
-    color: colors.textLight,
+    color: colors.textSecondary,
   },
-  selectorContainer: {
-    marginBottom: spacing.xl,
-  },
-  selectorLabel: {
-    ...typography.subheader,
-    fontSize: 18,
-    color: colors.text,
-  },
-  moodRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: spacing.s,
-  },
-  moodBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+
+  // Card System
+  card: {
     backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.m,
+    marginBottom: spacing.m,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.soft,
   },
-  moodBtnActive: {
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accent,
-    transform: [{scale: 1.05}]
+  rowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  moodText: {
-    ...typography.body,
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
+  cardTitle: {
+    ...typography.h3,
+    marginBottom: spacing.m,
   },
-  label: {
-    ...typography.subheader,
-    marginBottom: spacing.s,
-    fontSize: 18,
+  cardTitleInline: {
+    ...typography.h3,
+    flex: 1,
   },
-  input: {
+  sliderContainer: {
+    marginBottom: spacing.l,
+  },
+
+  // Stepper UI
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: borderRadius.round,
+    padding: spacing.xs,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.round,
     backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
+  },
+  stepperValue: {
+    ...typography.h3,
+    color: colors.text,
+    minWidth: 44,
+    textAlign: 'center',
+  },
+
+  // Input fields
+  input: {
+    ...typography.body,
+    backgroundColor: colors.inputBackground,
     padding: spacing.m,
-    borderRadius: borderRadius.m,
+    borderRadius: borderRadius.s,
     borderWidth: 1,
     borderColor: colors.border,
-    minHeight: 100,
+    minHeight: 120,
     textAlignVertical: 'top',
-    marginBottom: spacing.xl,
-    color: colors.text,
+    color: colors.textPrimary,
+  },
+
+  // Footer & Buttons
+  footer: {
+    paddingHorizontal: spacing.l,
+    paddingTop: spacing.m,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   saveBtn: {
     backgroundColor: colors.primary,
-    padding: spacing.m,
+    paddingVertical: spacing.m,
     borderRadius: borderRadius.l,
     alignItems: 'center',
-    ...shadows.soft,
+    justifyContent: 'center',
+    ...shadows.medium, // Elevated shadow for CTA
   },
   saveBtnText: {
-    ...typography.subheader,
-    color: colors.buttonPrimaryText,
-    fontSize: 18,
+    ...typography.button,
   },
-  footer: {
-      padding: spacing.l,
-      backgroundColor: colors.background, 
-  }
 });

@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalErrorBoundary } from './src/components/GlobalErrorBoundary';
 import { View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 
 if (Platform.OS === 'web') {
   const style = document.createElement('style');
@@ -156,11 +157,28 @@ import { NotificationService } from './src/services/NotificationService';
 
 const MainAppContent = () => {
     const [isSplashVisible, setIsSplashVisible] = React.useState(true);
-    
+    // FIX Bug 8: hold the listener subscription so we can remove it on unmount
+    const notifListenerRef = useRef<Notifications.Subscription | null>(null);
+
     React.useEffect(() => {
         NotificationService.init().then(() => {
             NotificationService.debugListScheduled();
         });
+
+        // FIX Bug 8: Handle notification taps (foreground + background)
+        notifListenerRef.current = Notifications.addNotificationResponseReceivedListener(response => {
+            const data = response.notification.request.content.data as any;
+            console.log('[App] Notification tapped:', data);
+            // Navigation from here requires a navigationRef; the handlers in
+            // individual screens already cover the in-app case. This listener
+            // ensures the app wakes and the data is logged for future deep linking.
+        });
+
+        return () => {
+            if (notifListenerRef.current) {
+                notifListenerRef.current.remove();
+            }
+        };
     }, []);
 
     return (
