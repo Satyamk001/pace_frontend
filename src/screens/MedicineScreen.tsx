@@ -13,6 +13,7 @@ import { NotificationService } from '../services/NotificationService';
 import { BackButton } from '../components/ui/BackButton';
 import { MedicineFormCard } from '../components/ui/MedicineFormCard';
 import { MedicineCard } from '../components/ui/MedicineCard';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export const MedicineScreen = () => {
     const navigation = useNavigation();
@@ -226,16 +227,24 @@ export const MedicineScreen = () => {
                     />
                 )}
                 
-                {medicines.map((med) => (
-                    <MedicineCard 
-                        key={med.id}
-                        med={med}
-                        schedule={schedule}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onTakeMedicine={handleTakeMedicine}
+                {medicines.length > 0 ? (
+                    medicines.map((med) => (
+                        <MedicineCard 
+                            key={med.id}
+                            med={med}
+                            schedule={schedule}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onTakeMedicine={handleTakeMedicine}
+                        />
+                    ))
+                ) : (
+                    <EmptyState 
+                        icon="medkit-outline" 
+                        title="No medicines added" 
+                        message="Add your medicines to start tracking your daily schedule." 
                     />
-                ))}
+                )}
 
             </ScrollView>
             </KeyboardAvoidingView>

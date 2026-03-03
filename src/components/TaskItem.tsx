@@ -49,10 +49,10 @@ export const TaskItem = ({
 
     const getEnergyConfig = () => {
         switch (energyLevel) {
-            case 'LOW': return { color: colors.mood.great, icon: 'leaf-outline' as const };
-            case 'MEDIUM': return { color: colors.mood.okay, icon: 'sunny-outline' as const };
-            case 'HIGH': return { color: colors.mood.pain, icon: 'flame-outline' as const };
-            default: return { color: colors.mood.okay, icon: 'sunny-outline' as const };
+            case 'LOW': return { color: colors.mood.mild, icon: 'leaf-outline' as const };
+            case 'MEDIUM': return { color: colors.mood.elevated, icon: 'sunny-outline' as const };
+            case 'HIGH': return { color: colors.mood.severe, icon: 'flame-outline' as const };
+            default: return { color: colors.mood.elevated, icon: 'sunny-outline' as const };
         }
     };
     const energy = getEnergyConfig();
@@ -136,7 +136,7 @@ export const TaskItem = ({
                                 {/* TIME CHIP */}
                                 <View style={[
                                     styles.metaChip,
-                                    { borderColor: dateInfo?.isWarning ? colors.mood.pain : colors.border }
+                                    { borderColor: dateInfo?.isWarning ? colors.mood.severe : colors.border }
                                 ]}>
                                     <Ionicons
                                         name="time-outline"
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: borderRadius.l,
-        backgroundColor: colors.mood.pain,
+        backgroundColor: colors.mood.severe,
         justifyContent: 'center',
         alignItems: 'center',
     }

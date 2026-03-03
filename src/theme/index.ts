@@ -4,125 +4,115 @@ import { Dimensions } from 'react-native';
 // RESPONSIVE SCALING UTILITIES
 // ============================================================
 const { width } = Dimensions.get('window');
-const guidelineBaseWidth = 390; // Standard modern device width (e.g. iPhone 12/13/14)
+const guidelineBaseWidth = 390;
 
-export const scale = (size: number) => Math.min(width / guidelineBaseWidth, 1) * size;
-export const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
+export const scale = (size: number) =>
+  Math.min(width / guidelineBaseWidth, 1) * size;
+
+export const moderateScale = (size: number, factor = 0.5) =>
+  size + (scale(size) - size) * factor;
 
 // ============================================================
-// SINGLE SOURCE OF TRUTH — DO NOT ADD COLORS OUTSIDE THIS FILE
+// STRICT COLOR PALETTE (ONLY THESE COLORS + SHADES)
 // ============================================================
-
 const palette = {
-  // Brand — Medical Blue/Teal (Calm, Professional, Sterile but Kind)
-  accent: '#0891B2',         // cyan-600 — modern medical teal
-  accentDark: '#0E7490',     // cyan-700 — deep focus
-  accentSoft: '#ECFEFF',     // cyan-50 — fresh morning air tint
+  baseBackground: '#F6F8F0',
 
-  // Neutrals — Soft "Warm Slate" to prevent clinical coldness
-  background: '#F8FAFC',     // slate-50 — clean hospital sheet white
-  surface: '#FFFFFF',        // pure white — elevated cards
-  surfaceSoft: '#F1F5F9',    // slate-100 — subtle depth
-  border: '#E2E8F0',         // slate-200 — light definition
+  // NEW Primary Accent — Dusty Blue
+  lavender: '#5F7DB8',
+  olive: '#9BA146',
+  white: '#FFFFFF',
+  black: '#000000',
 
-  // Text — Optimized for readability in high-stress moments
-  headerText: '#0F172A',     // slate-900 — high contrast for titles
-  textPrimary: '#334155',    // slate-700 — softer body text for less eye strain
-  subtitleText: '#64748B',   // slate-500 — secondary metadata
+  // Derived shades (lighter/darker only)
+  lavenderDark: '#4A6599',
+  lavenderLight: '#D6E0F5',
 
-  // Buttons
-  buttonPrimaryText: '#FFFFFF',
-  buttonDisabledBg: '#CBD5E1',
-  buttonDisabledText: '#94A3B8',
+  oliveDark: '#83883D',
+  oliveLight: '#C4C878',
 
-  // Mood/Health Indicators — Clear, intuitive clinical signaling
-  moodGreat: '#10B981',  // emerald-500 — vibrant health
-  moodGood: '#34D399',   // emerald-400 — stable
-  moodOkay: '#F59E0B',   // amber-500 — warning/monitoring
-  moodLow: '#F97316',    // orange-500 — significant symptoms
-  moodPain: '#EF4444',   // red-500 — acute distress / "take action"
-
-  // Accent utilities
-  mint: '#059669',       // Clinical utility green
+  backgroundSoft: '#FAFBF6',
+  borderSoft: '#E4E8DA',
 };
+// ============================================================
+// EXPORTED COLORS — SEMANTIC SYSTEM
+// ============================================================
 
-// ============================================================
-// EXPORTED COLORS — Semantic Health Mapping
-// ============================================================
 export const colors = {
-  background: palette.background,
-  surface: palette.surface,
-  surfaceSoft: palette.surfaceSoft,
-  border: palette.border,
+  // Background Layers
+  background: palette.baseBackground,
+  surface: palette.white,
+  surfaceSoft: palette.backgroundSoft,
+  border: palette.borderSoft,
+  divider: palette.borderSoft,
+  inputBackground: palette.white,
 
   // Typography
-  text: palette.headerText,
-  textPrimary: palette.textPrimary,
-  textSecondary: palette.subtitleText,
-  textLight: palette.subtitleText,
+  text: palette.black,
+  textPrimary: palette.black,
+  textSecondary: '#4A4A4A', // darker grey derived from black
+  textLight: '#777777',
 
   // Primary Branding
-  primary: palette.accent,
-  accent: palette.accent,
-  accentDark: palette.accentDark,
-  accentSoft: palette.accentSoft,
+  primary: palette.lavender,
+  accent: palette.lavender,
+  accentDark: palette.lavenderDark,
+  accentSoft: palette.lavenderLight,
 
-  // Semantic Health States
-  success: palette.moodGreat,
-  error: palette.moodPain,
-  warning: palette.moodOkay,
-  info: palette.accent,
+  // Semantic States (derived only)
+  success: palette.olive,
+  error: palette.oliveDark,
+  warning: palette.oliveLight,
+  info: palette.lavender,
 
   // Buttons
-  buttonPrimaryText: palette.buttonPrimaryText,
-  buttonDisabledBg: palette.buttonDisabledBg,
-  buttonDisabledText: palette.buttonDisabledText,
+  buttonPrimaryText: palette.white,
+  buttonDisabledBg: palette.borderSoft,
+  buttonDisabledText: '#888888',
 
-  // Patient Mood/Vitals Tracking
-  mood: {
-    great: palette.moodGreat,
-    good: palette.moodGood,
-    okay: palette.moodOkay,
-    low: palette.moodLow,
-    pain: palette.moodPain,
-  },
-
-  // Health Metrics / Charts
+  // Mood Mapping (strictly derived)
+ // Mood Mapping — Strong Clinical Differentiation
+mood: {
+  none: palette.oliveDark,          // No pain — visual relief
+  mild: palette.oliveLight,  // Subtle discomfort
+  moderate: palette.lavenderLight,   // Noticeable but stable
+  elevated: palette.lavender, // Monitoring required
+  severe: palette.lavenderDark,    // High concern
+  critical: palette.lavenderDark,      // Immediate attention
+},
+  // Charts
   chart: {
-    pain: palette.moodPain,
-    fatigue: '#8B5CF6', // violet-500 for neurological fatigue
-    grid: palette.border,
-    text: palette.subtitleText,
+    primary: palette.lavender,
+    secondary: palette.olive,
+    grid: palette.borderSoft,
+    text: palette.black,
   },
 
-  // Caregiver / Pro features
-  premium: '#F59E0B', // orange-700 — "Trust" color for upgraded care
+  // Premium
+  premium: palette.oliveDark,
 
-  // Layer system (Z-index depth)
-  l0: palette.background,
-  l1: palette.surface,
-  l2: '#F1F5F9',
-  l3: palette.accentSoft,
+  // Layers
+  l0: palette.baseBackground,
+  l1: palette.white,
+  l2: palette.backgroundSoft,
+  l3: palette.lavenderLight,
 
-  divider: palette.border,
-  inputBackground: '#F8FAFC',
   transparent: 'transparent',
 
-  palette: palette,
-
-  // Gradients — "Healing" gradients (Soft transitions)
+  palette,
   gradients: {
-    background: ['#F8FAFC', '#EFF6FF'], // Subtle blue-ish wash
-    surface: ['#FFFFFF', '#F8FAFC'],
-    premium: ['#EEF2FF', '#E0E7FF'],    // Soft indigo wash
+    background: [palette.baseBackground, palette.backgroundSoft],
+    surface: [palette.white, palette.baseBackground],
+    premium: [palette.lavenderLight, palette.lavender],
   },
 };
 
 // ============================================================
-// LAYOUT & SPACING — High "Breathability"
+// LAYOUT
 // ============================================================
+
 export const layout = {
-  screenPadding: moderateScale(16), // Tighter padding for wider content areas
+  screenPadding: moderateScale(16),
   headerHeight: moderateScale(64),
   borderRadius: 16,
 };
@@ -150,91 +140,86 @@ export const borderRadius = {
 };
 
 // ============================================================
-// SHADOWS — Light & Weightless
+// SHADOWS (BLACK ONLY)
 // ============================================================
+
 export const shadows = {
   soft: {
-    shadowColor: '#334155',
+    shadowColor: palette.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
   medium: {
-    shadowColor: '#334155',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
+    shadowColor: palette.black,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
   },
   glow: {
-    shadowColor: palette.accent,
+    shadowColor: palette.lavender,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 5,
   },
 };
 
 // ============================================================
-// TYPOGRAPHY — Clear, Intentional Hierarchy
+// TYPOGRAPHY
 // ============================================================
+
 export const typography = {
   h1: {
-    fontSize: moderateScale(34),           // Scaled down for mobile focus
+    fontSize: moderateScale(34),
     fontWeight: '800' as const,
-    color: colors.text,
-    letterSpacing: -0.5,
+    color: palette.black,
     lineHeight: moderateScale(42),
   },
   h2: {
     fontSize: moderateScale(26),
     fontWeight: '700' as const,
-    color: colors.text,
-    letterSpacing: -0.3,
+    color: palette.black,
     lineHeight: moderateScale(32),
   },
   h3: {
     fontSize: moderateScale(20),
     fontWeight: '600' as const,
-    color: colors.text,
+    color: palette.black,
     lineHeight: moderateScale(26),
   },
   header: {
     fontSize: moderateScale(22),
     fontWeight: '700' as const,
-    color: colors.text,
-    lineHeight: moderateScale(28),
+    color: palette.black,
   },
   subheader: {
     fontSize: moderateScale(18),
     fontWeight: '600' as const,
-    color: colors.textSecondary,
-    lineHeight: moderateScale(24),
+    color: palette.lavenderDark,
   },
   body: {
     fontSize: moderateScale(16),
-    color: colors.textPrimary,
-    lineHeight: moderateScale(24),
     fontWeight: '400' as const,
+    color: palette.black,
+    lineHeight: moderateScale(24),
   },
   bodyBold: {
     fontSize: moderateScale(16),
     fontWeight: '600' as const,
-    color: colors.textPrimary,
-    lineHeight: moderateScale(24),
+    color: palette.black,
   },
   button: {
     fontSize: moderateScale(16),
     fontWeight: '700' as const,
-    color: '#FFF',
-    letterSpacing: 0.2, // Tighter tracking for readability
+    color: palette.white,
   },
   caption: {
     fontSize: moderateScale(13),
-    color: colors.textSecondary,
-    lineHeight: moderateScale(18),
     fontWeight: '500' as const,
+    color: palette.lavenderDark,
   },
 };
 

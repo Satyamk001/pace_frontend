@@ -11,6 +11,7 @@ import { BackButton } from '../components/ui/BackButton';
 import { FoodSummaryCard } from '../components/ui/FoodSummaryCard';
 import { FoodFormCard } from '../components/ui/FoodFormCard';
 import { FoodLogItem } from '../components/ui/FoodLogItem';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export const FoodScreen = () => {
     const navigation = useNavigation();
@@ -130,7 +131,11 @@ export const FoodScreen = () => {
                         />
                     ))}
                     {logs.length === 0 && !loading && (
-                        <Text style={styles.emptyText}>No meals logged today.</Text>
+                        <EmptyState 
+                            icon="restaurant-outline" 
+                            title="No meals logged" 
+                            message="No meals logged today. Add what you ate to track your calories." 
+                        />
                     )}
                 </View>
 

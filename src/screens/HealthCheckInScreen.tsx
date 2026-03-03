@@ -129,7 +129,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
                 label="Pain Level"
                 value={pain}
                 onValueChange={setPain}
-                color={colors.chart.pain}
+                color={colors.chart.primary}
                 max={10}
                 step={0.1}
               />
@@ -138,7 +138,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
               label="Fatigue Level"
               value={fatigue}
               onValueChange={setFatigue}
-              color={colors.chart.fatigue}
+              color={colors.chart.secondary}
               max={10}
               step={0.1}
             />

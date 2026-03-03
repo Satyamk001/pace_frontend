@@ -38,13 +38,13 @@ const getLevelColor = (level: number | null | undefined, mode: HeatmapMode, isOu
     if (level == null || level <= 0) return colors.surfaceSoft;
 
     if (mode === 'pain') {
-        if (level >= 7) return colors.mood.pain;
-        if (level >= 4) return colors.mood.low;
-        return colors.mood.okay;
+        if (level >= 7) return '#FF0000';
+        else if (level >= 4) return '#ff3300ff';
+        else return '#ff8800ff';
     }
-    if (level >= 7) return '#5B21B6';
-    if (level >= 4) return '#7C3AED';
-    return '#A78BFA';
+    if (level >= 7) return '#FF0000';
+    else if (level >= 4) return '#ff3300ff';
+    else return '#ff8800ff';
 };
 
 // ─── Day Detail Modal ────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     nodeTappable: {
         // Subtle border to hint tappability for days with data
         borderWidth: 0.5,
-        borderColor: 'rgba(0,0,0,0.12)',
+        borderColor: 'rgba(167, 247, 38, 0.5)',
     },
     nodeText: {
         fontSize: 8,
@@ -421,12 +421,12 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
     },
     toggleBtnActive: {
-        backgroundColor: colors.mood.pain,
-        borderColor: colors.mood.pain,
+        backgroundColor: colors.mood.elevated,
+        borderColor: colors.mood.elevated,
     },
     toggleBtnActiveFatigue: {
-        backgroundColor: '#7C3AED',
-        borderColor: '#7C3AED',
+        backgroundColor: colors.mood.severe,
+        borderColor: colors.mood.severe,
     },
     toggleText: {
         ...typography.caption,

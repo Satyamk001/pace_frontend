@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {colors, typography, spacing, borderRadius} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,12 +13,44 @@ import { BackButton } from '../components/ui/BackButton';
 
 import { SkeletonBox } from '../components/ui/SkeletonLoader';
 import { StatCard } from '../components/ui/StatCard';
+import { EmptyState } from '../components/ui/EmptyState';
 
 const RANGE_OPTIONS = [
     { label: '30D', value: '30D' },
     { label: 'This Month', value: 'MONTH' },
     { label: 'This Year', value: 'YEAR' },
 ];
+
+const HistoryItem = React.memo(({ item, prevItem }: { item: any; prevItem: any }) => {
+    const delta = prevItem ? parseFloat(item.weight) - parseFloat(prevItem.weight) : null;
+    return (
+        <View style={styles.historyItem}>
+            <View style={styles.historyDateRow}>
+                <View style={styles.historyDot} />
+                <Text style={styles.historyDate}>
+                    {new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </Text>
+            </View>
+            <View style={styles.historyRight}>
+                {delta !== null && delta !== 0 && (
+                    <View style={[styles.deltaBadge, { backgroundColor: delta > 0 ? colors.error + '15' : colors.success + '15' }]}>
+                        <Ionicons
+                            name={delta > 0 ? 'arrow-up' : 'arrow-down'}
+                            size={11}
+                            color={delta > 0 ? colors.error : colors.success}
+                        />
+                        <Text style={[styles.deltaText, { color: delta > 0 ? colors.error : colors.success }]}>
+                            {Math.abs(delta).toFixed(1)}
+                        </Text>
+                    </View>
+                )}
+                <Text style={styles.historyValue}>
+                    {parseFloat(item.weight).toFixed(1)} <Text style={styles.historyUnit}>kg</Text>
+                </Text>
+            </View>
+        </View>
+    );
+});
 
 export const WeightScreen = () => {
     const navigation = useNavigation();
@@ -131,6 +163,108 @@ export const WeightScreen = () => {
 
 
 
+    const reversedHistory = useMemo(() => [...history].reverse(), [history]);
+
+    const renderHeader = () => (
+        <View>
+            {/* Primary Stats Grid */}
+            <View style={styles.statsGrid}>
+                <StatCard label="Lowest" value={stats.min} icon="arrow-down" color={colors.success} isLoading={loading} suffix="" />
+                <StatCard label="Highest" value={stats.max} icon="arrow-up" color={colors.error} isLoading={loading} suffix="" />
+                <StatCard label="Average" value={stats.avg} icon="analytics" color={colors.accent} isLoading={loading} suffix="" />
+                <View style={{ width: '48%', backgroundColor: 'transparent', borderWidth: 0 }} />
+            </View>
+
+            {/* Chart */}
+            <View style={styles.chartCard}>
+                 <View style={styles.chartHeader}>
+                     <Text style={styles.chartTitle}>Trend</Text>
+                 </View>
+                 
+                 {loading ? (
+                     <View style={styles.loadingContainer}>
+                         <ActivityIndicator size="large" color={colors.accent} />
+                     </View>
+                 ) : chartConfig ? (
+                     <View style={styles.chartContainer}>
+                         <LineChart
+                            data={{
+                                labels: chartConfig.labels,
+                                datasets: [{ data: chartConfig.data }]
+                            }}
+                            width={Dimensions.get('window').width - 80}
+                            height={220}
+                            yAxisSuffix=""
+                            chartConfig={{
+                                backgroundColor: colors.surface,
+                                backgroundGradientFrom: colors.surface,
+                                backgroundGradientTo: colors.surface,
+                                decimalPlaces: 1,
+                                color: (opacity = 1) => colors.accent,
+                                labelColor: (opacity = 1) => colors.textSecondary,
+                                strokeWidth: 3,
+                                propsForDots: {
+                                    r: "4",
+                                    strokeWidth: "2",
+                                    stroke: colors.accent,
+                                },
+                                propsForBackgroundLines: {
+                                    strokeDasharray: '5, 5',
+                                    strokeWidth: 1,
+                                    stroke: colors.border
+                                },
+                                paddingRight: spacing.sm,
+                                fillShadowGradientFrom: colors.accent,
+                                fillShadowGradientTo: colors.accent,
+                                fillShadowGradientFromOpacity: 0.2,
+                                fillShadowGradientToOpacity: 0,
+                            }}
+                            bezier
+                            withInnerLines={false}
+                            withOuterLines={true}
+                            style={{
+                                marginVertical: spacing.sm,
+                                borderRadius: borderRadius.md,
+                                marginLeft: -30,
+                            }}
+                        />
+                     </View>
+                 ) : (
+                     <View style={styles.emptyCard}>
+                         <View style={styles.emptyIconCircle}>
+                             <Ionicons name="scale-outline" size={32} color={colors.border} />
+                         </View>
+                         <Text style={styles.noDataText}>Not enough data</Text>
+                         <Text style={styles.noDataHint}>Log at least 2 entries to see your trend graph.</Text>
+                     </View>
+                 )}
+            </View>
+
+            {/* Input Log Section */}
+            <View style={styles.inputSection}>
+                <Text style={styles.inputSectionTitle}>Log Weight</Text>
+                <View style={styles.inputCard}>
+                    <View style={styles.inputRow}>
+                        <TextInput 
+                            style={styles.input} 
+                            placeholder="e.g. 70.5"
+                            placeholderTextColor={colors.textLight}
+                            keyboardType="decimal-pad"
+                            value={weight}
+                            onChangeText={setWeight}
+                        />
+                        <Text style={styles.unitText}>kg</Text>
+                        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                            <Ionicons name="checkmark" size={24} color={colors.surface} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+
+            <Text style={styles.sectionHeader}>Log History</Text>
+        </View>
+    );
+
     return (
         <ScreenLayout edges={['top']} useGradient>
              <View style={styles.header}>
@@ -159,137 +293,30 @@ export const WeightScreen = () => {
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
             >
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                
-                    {/* Primary Stats Grid */}
-                    <View style={styles.statsGrid}>
-                        <StatCard label="Lowest" value={stats.min} icon="arrow-down" color={colors.success} isLoading={loading} suffix="" />
-                        <StatCard label="Highest" value={stats.max} icon="arrow-up" color={colors.error} isLoading={loading} suffix="" />
-                        <StatCard label="Average" value={stats.avg} icon="analytics" color={colors.accent} isLoading={loading} suffix="" />
-                        <View style={{ width: '48%', backgroundColor: 'transparent', borderWidth: 0 }} />
-                    </View>
-
-                    {/* Chart */}
-                    <View style={styles.chartCard}>
-                         <View style={styles.chartHeader}>
-                             <Text style={styles.chartTitle}>Trend</Text>
-                         </View>
-                         
-                         {loading ? (
-                             <View style={styles.loadingContainer}>
-                                 <ActivityIndicator size="large" color={colors.accent} />
-                             </View>
-                         ) : chartConfig ? (
-                             <View style={styles.chartContainer}>
-                                 <LineChart
-                                    data={{
-                                        labels: chartConfig.labels,
-                                        datasets: [{ data: chartConfig.data }]
-                                    }}
-                                    width={Dimensions.get('window').width - 80} // Fix: Account for screen + card padding
-                                    height={220}
-                                    yAxisSuffix=""
-                                    chartConfig={{
-                                        backgroundColor: colors.surface,
-                                        backgroundGradientFrom: colors.surface,
-                                        backgroundGradientTo: colors.surface,
-                                        decimalPlaces: 1,
-                                        color: (opacity = 1) => colors.accent,
-                                        labelColor: (opacity = 1) => colors.textSecondary,
-                                        strokeWidth: 3,
-                                        propsForDots: {
-                                            r: "4",
-                                            strokeWidth: "2",
-                                            stroke: colors.accent,
-                                        },
-                                        propsForBackgroundLines: {
-                                            strokeDasharray: '5, 5',
-                                            strokeWidth: 1,
-                                            stroke: colors.border
-                                        },
-                                        paddingRight: spacing.sm,
-                                        fillShadowGradientFrom: colors.accent,
-                                        fillShadowGradientTo: colors.accent,
-                                        fillShadowGradientFromOpacity: 0.2,
-                                        fillShadowGradientToOpacity: 0,
-                                    }}
-                                    bezier
-                                    withInnerLines={false}
-                                    withOuterLines={true}
-                                    style={{
-                                        marginVertical: spacing.sm,
-                                        borderRadius: borderRadius.md,
-                                        marginLeft: -30, // Tighten left gap
-                                    }}
-                                />
-                             </View>
-                         ) : (
-                             <View style={styles.emptyCard}>
-                                 <View style={styles.emptyIconCircle}>
-                                     <Ionicons name="scale-outline" size={32} color={colors.border} />
-                                 </View>
-                                 <Text style={styles.noDataText}>Not enough data</Text>
-                                 <Text style={styles.noDataHint}>Log at least 2 entries to see your trend graph.</Text>
-                             </View>
-                         )}
-                    </View>
-
-                    {/* Input Log Section */}
-                    <View style={styles.inputSection}>
-                        <Text style={styles.inputSectionTitle}>Log Weight</Text>
-                        <View style={styles.inputCard}>
-                            <View style={styles.inputRow}>
-                                <TextInput 
-                                    style={styles.input} 
-                                    placeholder="e.g. 70.5"
-                                    placeholderTextColor={colors.textLight}
-                                    keyboardType="decimal-pad"
-                                    value={weight}
-                                    onChangeText={setWeight}
-                                />
-                                <Text style={styles.unitText}>kg</Text>
-                                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                                    <Ionicons name="checkmark" size={24} color={colors.surface} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* History List */}
-                    <View style={styles.historyList}>
-                         <Text style={styles.sectionHeader}>Log History</Text>
-                         {history.slice().reverse().map((item, index, arr) => {
-                             const prevItem = arr[index + 1]; // previous day (older, since reversed)
-                             const delta = prevItem ? parseFloat(item.weight) - parseFloat(prevItem.weight) : null;
-                             return (
-                                 <View key={item.id || index} style={styles.historyItem}>
-                                     <View style={styles.historyDateRow}>
-                                        <View style={styles.historyDot} />
-                                        <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-                                     </View>
-                                     <View style={styles.historyRight}>
-                                         {delta !== null && delta !== 0 && (
-                                             <View style={[styles.deltaBadge, { backgroundColor: delta > 0 ? colors.error + '15' : colors.success + '15' }]}>
-                                                 <Ionicons
-                                                     name={delta > 0 ? 'arrow-up' : 'arrow-down'}
-                                                     size={11}
-                                                     color={delta > 0 ? colors.error : colors.success}
-                                                 />
-                                                 <Text style={[styles.deltaText, { color: delta > 0 ? colors.error : colors.success }]}>
-                                                     {Math.abs(delta).toFixed(1)}
-                                                 </Text>
-                                             </View>
-                                         )}
-                                         <Text style={styles.historyValue}>{parseFloat(item.weight).toFixed(1)} <Text style={styles.historyUnit}>kg</Text></Text>
-                                     </View>
-                                 </View>
-                             );
-                         })}
-                    </View>
-
-                    <View style={{height: 100}} />
-
-                </ScrollView>
+                <FlatList
+                    data={reversedHistory}
+                    renderItem={({ item, index }) => (
+                        <HistoryItem item={item} prevItem={reversedHistory[index + 1]} />
+                    )}
+                    keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                    ListHeaderComponent={renderHeader}
+                    ListEmptyComponent={
+                        !loading ? (
+                            <EmptyState 
+                                icon="scale-outline" 
+                                title="No weight logs yet" 
+                                message="Your weight history will appear here once you start logging." 
+                            />
+                        ) : null
+                    }
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    ListFooterComponent={<View style={{ height: 100 }} />}
+                />
             </KeyboardAvoidingView>
         </ScreenLayout>
     );
@@ -458,6 +485,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: borderRadius.m,
         borderWidth: 1,
+        marginBottom: spacing.s,
         borderColor: colors.border + '20',
     },
     historyDateRow: {

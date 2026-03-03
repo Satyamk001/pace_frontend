@@ -326,24 +326,28 @@ export const AppNavigator = () => {
 const tabStyles = StyleSheet.create({
     tabBarOuter: {
         position: 'absolute',
-        bottom: 24,
-        left: 16,
-        right: 16,
+        bottom: 0,
+        left: 0,
+        right: 0,
     },
     tabBar: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.surface,
-        borderRadius: borderRadius.xl,  // 36 — very rounded pill shape
-        height: 64,
+        borderTopLeftRadius: borderRadius.s,
+        borderTopRightRadius: borderRadius.s,
+        height: 84,
+        paddingBottom: 20, // To accommodate bottom safe area
         paddingHorizontal: 6,
         // Layered shadow for premium floating feel
-        shadowColor: '#1A1400',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.10,
-        shadowRadius: 24,
-        elevation: 12,
-        borderWidth: 1,
+        // shadowColor: '#1A1400',
+        // shadowOffset: { width: 0, height: -4 },
+        // shadowOpacity: 0.10,
+        // shadowRadius: 16,
+        // elevation: 12,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
         borderColor: colors.border + '80',
     },
 

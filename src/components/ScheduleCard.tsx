@@ -39,7 +39,7 @@ export const ScheduleCard = ({
     // FIXED: Removed shadow and border for completed items to avoid "muddy" look
     const containerStyle = isCompleted 
         ? { 
-            backgroundColor: colors.palette.mint + '15', 
+            backgroundColor: colors.palette.lavenderLight + '15', 
             borderColor: 'transparent',
             borderWidth: 0,
           } 
@@ -47,9 +47,9 @@ export const ScheduleCard = ({
 
     const getEnergyConfig = () => {
         switch (energyLevel) {
-            case 'LOW': return { color: colors.mood.great, icon: 'leaf-outline' as const };
-            case 'MEDIUM': return { color: colors.mood.okay, icon: 'sunny-outline' as const };
-            case 'HIGH': return { color: colors.mood.pain, icon: 'flame-outline' as const };
+            case 'LOW': return { color: colors.mood.moderate, icon: 'leaf-outline' as const };
+            case 'MEDIUM': return { color: colors.mood.elevated, icon: 'sunny-outline' as const };
+            case 'HIGH': return { color: colors.mood.severe, icon: 'flame-outline' as const };
             default: return { color: accentColor, icon: 'flash-outline' as const };
         }
     };
@@ -95,7 +95,7 @@ export const ScheduleCard = ({
                         {dateInfo && (
                             <View style={[
                                 styles.metaChip,
-                                { borderColor: dateInfo.isWarning ? colors.mood.pain : colors.border }
+                                { borderColor: dateInfo.isWarning ? colors.mood.severe : colors.border }
                             ]}>
                                 <Ionicons
                                     name="time-outline"

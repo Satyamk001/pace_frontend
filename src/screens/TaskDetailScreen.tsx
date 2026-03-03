@@ -238,11 +238,11 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                         <Text style={styles.label}>Progress</Text>
                         <View style={styles.progressSection}>
                             <Text style={[styles.progressValue, { color: (() => {
-                                if (progress < 20) return colors.mood.pain;
-                                if (progress < 40) return colors.mood.low;
-                                if (progress < 60) return colors.mood.okay;
-                                if (progress < 80) return colors.mood.good;
-                                return colors.mood.great;
+                                if (progress < 20) return colors.mood.severe;
+                                if (progress < 40) return colors.mood.elevated;
+                                if (progress < 60) return colors.mood.moderate;
+                                if (progress < 80) return colors.mood.moderate;
+                                return colors.mood.moderate;
                             })() }]}>{progress}%</Text>
                             
                             <PanGestureHandler
@@ -269,11 +269,11 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                                             { 
                                                 width: `${progress}%`,
                                                 backgroundColor: (() => {
-                                                    if (progress < 20) return colors.mood.pain;
-                                                    if (progress < 40) return colors.mood.low;
-                                                    if (progress < 60) return colors.mood.okay;
-                                                    if (progress < 80) return colors.mood.good;
-                                                    return colors.mood.great;
+                                                    if (progress < 20) return colors.mood.severe;
+                                                    if (progress < 40) return colors.mood.elevated;
+                                                    if (progress < 60) return colors.mood.moderate;
+                                                    if (progress < 80) return colors.mood.moderate;
+                                                    return colors.mood.moderate;
                                                 })()
                                             }
                                         ]} 

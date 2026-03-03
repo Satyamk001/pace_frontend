@@ -22,9 +22,9 @@ export const CalendarScheduleCard = ({
     const scale = useSharedValue(1);
 
     const ENERGY_MAP = {
-        LOW: { icon: 'leaf-outline', color: colors.mood.great, label: 'Low Energy' },
-        MEDIUM: { icon: 'sunny-outline', color: colors.mood.okay, label: 'Med Energy' },
-        HIGH: { icon: 'flame-outline', color: colors.mood.pain, label: 'High Energy' },
+        LOW: { icon: 'leaf-outline', color: colors.mood.mild, label: 'Low Energy' },
+        MEDIUM: { icon: 'sunny-outline', color: colors.mood.elevated, label: 'Med Energy' },
+        HIGH: { icon: 'flame-outline', color: colors.mood.severe, label: 'High Energy' },
     };
     const energy = ENERGY_MAP[energyLevel as keyof typeof ENERGY_MAP] || ENERGY_MAP.MEDIUM;
 

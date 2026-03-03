@@ -1,4 +1,4 @@
-import { colors, typography, spacing, borderRadius } from '../../theme';
+import {colors, typography, spacing, borderRadius} from '../../theme';
 import React from 'react';
 import { View, Text, Platform } from 'react-native';
 

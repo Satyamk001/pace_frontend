@@ -13,6 +13,8 @@ import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
 import { useMoodTheme } from '../context/MoodContext';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { NotificationService } from '../services/NotificationService';
+import { NeonBackground } from '../components/ui/NeonBackground';
+import { EmptyState } from '../components/ui/EmptyState';
 
 
 export const HomeScreen = ({ navigation }: any) => {
@@ -159,8 +161,40 @@ export const HomeScreen = ({ navigation }: any) => {
 
   const greeting = getGreeting();
 
+  const getEmptyStateContent = () => {
+    switch (activeFilter) {
+        case 'DONE':
+            return {
+                icon: 'checkmark-done-outline' as const,
+                title: 'No tasks completed yet',
+                message: 'Finish your first task to see it here!'
+            };
+        case 'MISSED':
+            return {
+                icon: 'calendar-outline' as const,
+                title: 'All caught up!',
+                message: 'No missed tasks. Keep up the great pace!'
+            };
+        case 'UPCOMING':
+            return {
+                icon: 'sunny-outline' as const,
+                title: 'Clear horizon',
+                message: 'No upcoming tasks for today. Relax!'
+            };
+        default:
+            return {
+                icon: 'leaf-outline' as const,
+                title: 'Current cleared',
+                message: 'Your task list is empty. Time to breathe.'
+            };
+    }
+  };
+
+  const emptyContent = getEmptyStateContent();
+
   return (
       <ScreenLayout edges={['top']} useGradient="hero">
+        <NeonBackground />
         {/* Fixed Header / Health Hub Mat */}
         <LinearGradient 
             colors={colors.gradients.background as unknown as readonly [string, string, ...string[]]}
@@ -258,10 +292,11 @@ export const HomeScreen = ({ navigation }: any) => {
             {loading ? (
             <TaskListSkeleton count={5} />
             ) : sortedTodos.length === 0 ? (
-            <View style={styles.emptyState}>
-                <Ionicons name="leaf-outline" size={32} color={colors.palette.mint} style={{ marginBottom: 8 }} />
-                <Text style={styles.emptyText}>Current cleared. Time to breathe.</Text>
-            </View>
+            <EmptyState 
+                icon={emptyContent.icon}
+                title={emptyContent.title}
+                message={emptyContent.message}
+            />
             ) : (
             sortedTodos.map((todo, index) => (
                 <TaskItem 
@@ -421,16 +456,5 @@ const styles = StyleSheet.create({
   },
   filterCountTextActive: {
       color: colors.primary,
-  },
-  emptyState: {
-      padding: spacing.xl,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.l,
-  },
-  emptyText: {
-      ...typography.body,
-      color: colors.textSecondary,
-      fontStyle: 'italic',
   },
 });

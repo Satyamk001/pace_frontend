@@ -30,6 +30,7 @@ import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { NotificationService } from '../services/NotificationService';
 
 import { CalendarScheduleCard } from '../components/CalendarScheduleCard';
+import { EmptyState } from '../components/ui/EmptyState';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const { width: screenWidth } = Dimensions.get('window');
@@ -173,11 +174,11 @@ export const CalendarScreen = ({ route, navigation }: any) => {
 
     const getMoodDetails = (moodKey: string) => {
         const map: Record<string, any> = {
-            GREAT: { icon: 'happy-outline', color: colors.mood.great, label: 'Great' },
-            GOOD: { icon: 'leaf-outline', color: colors.mood.good, label: 'Good' },
-            OKAY: { icon: 'partly-sunny-outline', color: colors.mood.okay, label: 'Okay' },
-            LOW: { icon: 'battery-dead-outline', color: colors.mood.low, label: 'Low' },
-            PAIN: { icon: 'medkit-outline', color: colors.mood.pain, label: 'Pain' },
+            GREAT: { icon: 'happy-outline', color: colors.mood.moderate, label: 'Great' },
+            GOOD: { icon: 'leaf-outline', color: colors.mood.elevated, label: 'Good' },
+            OKAY: { icon: 'partly-sunny-outline', color: colors.mood.moderate, label: 'Okay' },
+            LOW: { icon: 'battery-dead-outline', color: colors.mood.elevated, label: 'Low' },
+            PAIN: { icon: 'medkit-outline', color: colors.mood.severe, label: 'Pain' },
         };
         if (moodKey?.includes(' ')) {
             const label = moodKey.split(' ').slice(1).join(' ');
@@ -202,7 +203,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
             marks[dateStr] = {
                 customStyles: {
                     container: {
-                        backgroundColor: isPainHigh ? colors.mood.pain : undefined,
+                        backgroundColor: isPainHigh ? colors.mood.elevated : undefined,
                         borderWidth: isAllDone ? 1 : 0,
                         borderColor: isAllDone ? colors.accent : undefined,
                     },
@@ -317,7 +318,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                                 <Ionicons name="fitness-outline" size={14} color={painLevel > 6 ? colors.error : colors.textSecondary} />
                                 <Text style={styles.statLabel}>Pain</Text>
                                 <View style={styles.miniBar}>
-                                    <View style={[styles.miniBarFill, { width: `${(painLevel / 10) * 100}%` as any, backgroundColor: painLevel > 6 ? colors.error : colors.mood.pain }]} />
+                                    <View style={[styles.miniBarFill, { width: `${(painLevel / 10) * 100}%` as any, backgroundColor: painLevel > 6 ? colors.error : colors.mood.elevated }]} />
                                 </View>
                                 <Text style={styles.statNum}>{painLevel}/10</Text>
                             </View>
@@ -327,7 +328,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                                 <Ionicons name="battery-half-outline" size={14} color={colors.textSecondary} />
                                 <Text style={styles.statLabel}>Fatigue</Text>
                                 <View style={styles.miniBar}>
-                                    <View style={[styles.miniBarFill, { width: `${(fatigueLevel / 10) * 100}%` as any, backgroundColor: colors.mood.low }]} />
+                                    <View style={[styles.miniBarFill, { width: `${(fatigueLevel / 10) * 100}%` as any, backgroundColor: colors.mood.severe }]} />
                                 </View>
                                 <Text style={styles.statNum}>{fatigueLevel}/10</Text>
                             </View>
@@ -417,15 +418,11 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                             <View style={{ height: 80 }} />
                         </View>
                     ) : (
-                        <View style={styles.emptyState}>
-                            <View style={styles.emptyIcon}>
-                                <Ionicons name="calendar-outline" size={32} color={colors.textSecondary} />
-                            </View>
-                            <Text style={styles.emptyTitle}>Nothing planned</Text>
-                            <Text style={styles.emptySubtitle}>
-                                {isPastDate() ? 'No tasks were scheduled for this day.' : 'Tap + to add your first task.'}
-                            </Text>
-                        </View>
+                        <EmptyState 
+                            icon="calendar-outline"
+                            title="Nothing planned"
+                            message={isPastDate() ? 'No tasks were scheduled for this day.' : 'Tap + to add your first task.'}
+                        />
                     )}
                 </ScrollView>
             </View>

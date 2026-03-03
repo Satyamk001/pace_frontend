@@ -17,11 +17,11 @@ interface MoodSelectorProps {
 }
 
 const MOODS = [
-    { id: 'GREAT', icon: 'happy-outline', label: 'Great', color: colors.mood.great },
-    { id: 'GOOD', icon: 'leaf-outline', label: 'Good', color: colors.mood.good },
-    { id: 'OKAY', icon: 'partly-sunny-outline', label: 'Okay', color: colors.mood.okay },
-    { id: 'LOW', icon: 'battery-dead-outline', label: 'Low', color: colors.mood.low },
-    { id: 'PAIN', icon: 'medkit-outline', label: 'Pain', color: colors.mood.pain },
+    { id: 'GREAT', icon: 'happy-outline', label: 'Great', color: colors.mood.none },
+    { id: 'GOOD', icon: 'leaf-outline', label: 'Good', color: colors.mood.mild },
+    { id: 'OKAY', icon: 'partly-sunny-outline', label: 'Okay', color: colors.mood.moderate },
+    { id: 'LOW', icon: 'battery-dead-outline', label: 'Low', color: colors.mood.elevated },
+    { id: 'PAIN', icon: 'medkit-outline', label: 'Pain', color: colors.mood.severe },
 ];
 
 export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) => {
@@ -31,8 +31,8 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
     useEffect(() => {
         // Start the breathing loop whenever the component mounts/updates
         breathScale.value = withRepeat(
-            withTiming(1.15, { 
-                duration: 1500, 
+            withTiming(1.08, { 
+                duration: 2000, 
                 easing: Easing.inOut(Easing.ease) 
             }), 
             -1, // Infinite repeat
@@ -57,7 +57,9 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
                 
                 // Static vs Animated Wrapper
                 const Wrapper = isSelected ? Animated.View : View;
-                const wrapperStyle = isSelected ? [styles.moodBtnActive, { borderColor: mood.color, shadowColor: mood.color }, animatedStyle] : styles.moodBtn;
+                const wrapperStyle = isSelected 
+                    ? [styles.moodBtnActive, { borderColor: mood.color, backgroundColor: mood.color + '15' }, animatedStyle] 
+                    : styles.moodBtn;
 
                 return (
                     <ScalePressable 
@@ -94,25 +96,22 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.s,
     },
     moodBtn: {
-        width: 68,
-        height: 80,
-        borderRadius: borderRadius.l,
-        backgroundColor: colors.surface, // Clean surface
-        justifyContent: 'center',
-        alignItems: 'center',
-        ...{} /* removed shadow */, // Soft shadow for depth
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    moodBtnActive: {
-        width: 68,
-        height: 80,
-        borderRadius: borderRadius.l,
+        width: 72,
+        height: 84,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.surface,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2, 
-        ...{} /* removed shadow */, // STRICT THEME USAGE
+        borderWidth: 1,
+        borderColor: colors.border + '40',
+    },
+    moodBtnActive: {
+        width: 72,
+        height: 84,
+        borderRadius: borderRadius.m,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
     },
     label: {
         ...typography.caption,

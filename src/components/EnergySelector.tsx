@@ -10,9 +10,9 @@ interface EnergySelectorProps {
 }
 
 const LEVELS = [
-    { id: 'LOW', icon: 'leaf-outline', label: 'Light', color: colors.mood.great },          // Greenish
-    { id: 'MEDIUM', icon: 'partly-sunny-outline', label: 'Medium', color: colors.mood.okay }, // Yellowish
-    { id: 'HIGH', icon: 'flame-outline', label: 'Heavy', color: colors.mood.pain },         // Reddish
+    { id: 'LOW', icon: 'leaf-outline', label: 'Light', color: colors.mood.moderate },          // Greenish
+    { id: 'MEDIUM', icon: 'partly-sunny-outline', label: 'Medium', color: colors.mood.elevated }, // Yellowish
+    { id: 'HIGH', icon: 'flame-outline', label: 'Heavy', color: colors.mood.severe },         // Reddish
 ];
 
 export const EnergySelector = ({ value, onChange }: EnergySelectorProps) => {

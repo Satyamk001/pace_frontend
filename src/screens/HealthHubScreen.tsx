@@ -194,7 +194,7 @@ export const HealthHubScreen = () => {
       ? summary.medicinesTaken / summary.medicinesTotal
       : 0;
   const medColor =
-    medFraction === 1 ? colors.mood.great : medFraction > 0 ? colors.mood.okay : colors.accentDark;
+    medFraction === 1 ? colors.mood.moderate : medFraction > 0 ? colors.mood.elevated : colors.accentDark;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
