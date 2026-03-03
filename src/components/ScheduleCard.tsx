@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, shadows, borderRadius, typography, spacing } from '../theme';
+import {colors, borderRadius, typography, spacing} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ProgressBar } from './ui/ProgressBar';
 import { ScalePressable } from './ui/ScalePressable';
@@ -42,8 +42,6 @@ export const ScheduleCard = ({
             backgroundColor: colors.palette.mint + '15', 
             borderColor: 'transparent',
             borderWidth: 0,
-            shadowOpacity: 0,
-            elevation: 0 
           } 
         : { backgroundColor: colors.surface };
 
@@ -143,7 +141,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.l, 
         paddingVertical: spacing.m,
         paddingHorizontal: spacing.m,
-        ...shadows.soft, 
         borderWidth: 1,
         borderColor: colors.border + '30',
         backgroundColor: colors.surface,
@@ -174,7 +171,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginTop: 4,
+        marginTop: spacing.xs,
     },
     chipsRow: {
         flexDirection: 'row',
@@ -184,28 +181,28 @@ const styles = StyleSheet.create({
     metaChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: borderRadius.round,
         backgroundColor: 'transparent',
         borderWidth: 1,
-        gap: 4,
+        gap: spacing.xs,
     },
     metaText: {
         ...typography.caption,
-        fontSize: 11,
-        fontWeight: '700',
+        ...typography.caption,
+
         textTransform: 'capitalize',
         color: colors.textPrimary,
     },
     miniProgress: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
     },
     progressText: {
-        fontSize: 11,
-        fontWeight: '600',
+        ...typography.caption,
+
         color: colors.textLight,
     },
     progressBarBG: {

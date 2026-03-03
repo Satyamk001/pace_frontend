@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDatePicker } from './ui/CustomDatePicker';
 import { MyDateTimePicker } from '../components/ui/MyDateTimePicker';
@@ -291,9 +291,8 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: colors.surface,
-        borderRadius: 24,
+        borderRadius: borderRadius.l,
         padding: spacing.l,
-        ...shadows.medium
     },
     header: {
         flexDirection: 'row',
@@ -318,14 +317,13 @@ const styles = StyleSheet.create({
     },
     menuText: {
         ...typography.body,
-        fontSize: 16
+        ...typography.body,
     },
     formContainer: {
         gap: spacing.m
     },
     label: {
         ...typography.body,
-        fontWeight: '600',
         marginBottom: spacing.xs
     },
     input: {
@@ -333,7 +331,7 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
         borderRadius: borderRadius.m,
         padding: spacing.m,
-        fontSize: 16,
+        ...typography.body,
         color: colors.text,
         backgroundColor: colors.background
     },
@@ -344,9 +342,9 @@ const styles = StyleSheet.create({
     energyChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 20,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.s,
+        borderRadius: borderRadius.l,
         borderWidth: 1,
         borderColor: colors.border,
         backgroundColor: colors.surface
@@ -356,7 +354,7 @@ const styles = StyleSheet.create({
         borderWidth: 2
     },
     energyText: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.text
     },
     saveBtn: {
@@ -368,8 +366,9 @@ const styles = StyleSheet.create({
     },
     saveBtnText: {
         ...typography.subheader,
-        color: colors.buttonPrimaryText,
-        fontSize: 16
+        ...typography.body,
+    color: colors.buttonPrimaryText,
+        
     },
     tomorrowBtn: {
         flexDirection: 'row',
@@ -379,26 +378,25 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.m,
         borderWidth: 1,
         borderColor: colors.border,
-        gap: 8,
+        gap: spacing.sm,
         marginTop: spacing.xs
     },
     tomorrowText: {
         ...typography.body,
-        fontWeight: '600'
     },
     dateBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
         backgroundColor: colors.surface,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.m,
         borderRadius: borderRadius.m,
         borderWidth: 1,
         borderColor: colors.border
     },
     dateText: {
-        fontSize: 14,
+        ...typography.body,
         color: colors.text
     }
 });

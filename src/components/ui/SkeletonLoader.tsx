@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions, ViewStyle } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../../theme';
+import {colors, spacing, borderRadius, typography} from '../../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -80,7 +80,6 @@ const taskStyles = StyleSheet.create({
         padding: spacing.lg,
         marginBottom: spacing.l,
         borderRadius: borderRadius.m,
-        ...shadows.soft,
         marginHorizontal: 2,
     },
     topRow: {
@@ -145,7 +144,7 @@ const scheduleStyles = StyleSheet.create({
         flex: 1,
         width: 1,
         backgroundColor: colors.border,
-        marginVertical: 4,
+        marginVertical: spacing.xs,
     },
     card: {
         flex: 1,
@@ -166,7 +165,7 @@ const scheduleStyles = StyleSheet.create({
     progressRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: spacing.s,
     },
 });
 
@@ -293,7 +292,6 @@ const statsStyles = StyleSheet.create({
         borderRadius: borderRadius.l,
         padding: spacing.m,
         marginBottom: spacing.l,
-        ...shadows.soft,
     },
     gridRow: {
         flexDirection: 'row',
@@ -313,7 +311,6 @@ const statsStyles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
         padding: spacing.m,
-        ...shadows.soft,
     }
 });
 
@@ -393,7 +390,6 @@ const profileStyles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
         padding: spacing.m,
-        ...shadows.soft,
     },
     row: {
         flexDirection: 'row',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { colors, borderRadius, spacing, typography, shadows } from '../../theme';
+import {colors, borderRadius, spacing, typography} from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface CustomDatePickerProps {
@@ -92,7 +92,7 @@ export const CustomDatePicker = ({
                                                         calendarBackground: colors.background,
                                                         textSectionTitleColor: colors.textLight,
                                                         selectedDayBackgroundColor: colors.primary,
-                                                        selectedDayTextColor: '#ffffff',
+                                                        selectedDayTextColor: '#FFF',
                                                         todayTextColor: colors.accent,
                                                         dayTextColor: colors.text,
                                                         textDisabledColor: '#d9e1e8',
@@ -136,7 +136,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderRadius: borderRadius.l,
         padding: spacing.m,
-        ...shadows.medium,
     },
     header: {
         flexDirection: 'row',
@@ -147,17 +146,19 @@ const styles = StyleSheet.create({
     },
     title: {
         ...typography.subheader,
-        color: colors.text,
-        fontSize: 16,
+        ...typography.body,
+    color: colors.text,
+        
     },
     subtitle: {
         ...typography.header,
-        color: colors.primary,
-        fontSize: 24,
-        marginTop: 4,
+        ...typography.h2,
+    color: colors.primary,
+        
+        marginTop: spacing.xs,
     },
     closeBtn: {
-        padding: 4,
+        padding: spacing.xs,
     },
     calendar: {
         borderRadius: borderRadius.m,
@@ -170,28 +171,27 @@ const styles = StyleSheet.create({
     },
     btnCancel: {
         flex: 1,
-        paddingVertical: 12,
+        paddingVertical: spacing.s,
         alignItems: 'center',
         borderRadius: borderRadius.m,
         borderWidth: 1,
         borderColor: colors.border,
     },
     btnTextCancel: {
-        color: colors.textLight,
-        fontWeight: '600',
-        fontSize: 16,
+        ...typography.body,
+    color: colors.textLight,
+        
     },
     btnConfirm: {
         flex: 1,
-        paddingVertical: 12,
+        paddingVertical: spacing.s,
         alignItems: 'center',
         borderRadius: borderRadius.m,
         backgroundColor: colors.primary,
-        ...shadows.soft,
     },
     btnTextConfirm: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-        fontSize: 16,
+        ...typography.body,
+    color: '#FFF',
+        
     }
 });

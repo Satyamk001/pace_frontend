@@ -1,0 +1,1 @@
+﻿src/screens/AuthScreen.tsx(220,5): error TS2783: 'color' is specified more than once, so this usage will be overwritten.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, shadows, spacing } from '../../theme';
+import {colors, borderRadius, spacing, typography} from '../../theme';
 
 interface SettingsCardItemProps {
     icon: any;
@@ -57,14 +57,13 @@ const styles = StyleSheet.create({
         padding: spacing.m,
         borderWidth: 1,
         borderColor: colors.border + '60',
-        ...shadows.soft,
         gap: spacing.m,
         marginBottom: spacing.s,
     },
     iconCircle: {
         width: 48,
         height: 48,
-        borderRadius: 14,
+        borderRadius: borderRadius.md,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
@@ -73,16 +72,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     label: {
-        fontSize: 15,
-        fontWeight: '700',
+        ...typography.body,
+
         color: colors.text,
         letterSpacing: -0.2,
         marginBottom: 2,
     },
     sub: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '400',
     },
     rightSlot: {
         flexShrink: 0,
@@ -90,7 +88,7 @@ const styles = StyleSheet.create({
     arrowBubble: {
         width: 28,
         height: 28,
-        borderRadius: 8,
+        borderRadius: borderRadius.s,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,

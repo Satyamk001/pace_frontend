@@ -3,7 +3,7 @@ import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { colors, shadows } from '../../theme';
+import {colors, typography, spacing, borderRadius} from '../../theme';
 
 interface BackButtonProps {
     onPress?: () => void;
@@ -40,8 +40,7 @@ const styles = StyleSheet.create({
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 20,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.surface,
-        ...shadows.soft,
     }
 });

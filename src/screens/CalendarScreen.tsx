@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 import { useAuth } from '@clerk/clerk-expo';
-import { colors, spacing, typography, shadows, borderRadius } from '../theme';
+import {colors, spacing, typography, borderRadius} from '../theme';
 import { createApiService } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -215,7 +215,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
             ...marks[sel],
             customStyles: {
                 container: { backgroundColor: colors.primary, borderWidth: 0 },
-                text: { color: '#fff', fontWeight: 'bold' },
+                text: { color: '#FFF', fontWeight: 'bold' },
             },
         };
         return marks;
@@ -268,7 +268,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                                 <Text style={[styles.dayChipNum, isSelected && styles.dayChipNumSelected]}>
                                     {date.getDate()}
                                 </Text>
-                                {isToday && <View style={[styles.todayDot, isSelected && { backgroundColor: '#fff' }]} />}
+                                {isToday && <View style={[styles.todayDot, isSelected && { backgroundColor: colors.surface }]} />}
                             </TouchableOpacity>
                         );
                     })}
@@ -348,7 +348,7 @@ export const CalendarScreen = ({ route, navigation }: any) => {
 
     // ─── Render
     return (
-        <ScreenLayout>
+        <ScreenLayout edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Schedule</Text>
@@ -447,8 +447,8 @@ const styles = StyleSheet.create({
         paddingBottom: spacing.s,
     },
     headerTitle: {
-        fontSize: 26,
-        fontWeight: '700',
+        ...typography.h2,
+
         color: colors.text,
         letterSpacing: -0.5,
     },
@@ -464,22 +464,20 @@ const styles = StyleSheet.create({
         padding: 3,
     },
     toggleBtn: {
-        paddingHorizontal: 14,
+        paddingHorizontal: spacing.md,
         paddingVertical: 7,
         borderRadius: borderRadius.round,
     },
     toggleBtnActive: {
         backgroundColor: colors.surface,
-        ...shadows.soft,
     },
     toggleText: {
-        fontSize: 13,
-        fontWeight: '500',
+        ...typography.caption,
+
         color: colors.textSecondary,
     },
     toggleTextActive: {
         color: colors.primary,
-        fontWeight: '700',
     },
     addBtn: {
         width: 38,
@@ -501,20 +499,15 @@ const styles = StyleSheet.create({
         borderColor: colors.border + '70',
         overflow: 'scroll',
         paddingHorizontal: 6,
-        paddingBottom: 10,
-        shadowColor: '#1A1400',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
-        elevation: 3,
+        paddingBottom: spacing.sm,
     },
     calendarInner: {
-        paddingTop: 4,
+        paddingTop: spacing.xs,
     },
     calArrowBtn: {
         width: 32,
         height: 32,
-        borderRadius: 10,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.accentSoft,
         alignItems: 'center',
         justifyContent: 'center',
@@ -527,7 +520,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: spacing.l,
         paddingTop: spacing.xs,
-        paddingBottom: 4,
+        paddingBottom: spacing.xs,
     },
     legendItem: {
         flexDirection: 'row',
@@ -537,18 +530,17 @@ const styles = StyleSheet.create({
     legendDot: {
         width: 9,
         height: 9,
-        borderRadius: 5,
+        borderRadius: borderRadius.s,
     },
     legendText: {
-        fontSize: 11,
+        ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '500',
     },
 
     // ── Drag handle
     dragHandle: {
         alignItems: 'center',
-        paddingVertical: 8,
+        paddingVertical: spacing.sm,
     },
     dragPill: {
         width: 36,
@@ -570,14 +562,14 @@ const styles = StyleSheet.create({
         marginBottom: spacing.m,
     },
     weekMonthTitle: {
-        fontSize: 15,
-        fontWeight: '600',
+        ...typography.body,
+
         color: colors.text,
         letterSpacing: -0.2,
     },
     navArrow: {
         padding: 6,
-        borderRadius: 10,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.accentSoft,
     },
     weekRow: {
@@ -590,31 +582,28 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: (screenWidth - spacing.xs * 2 - 16) / 7,
         height: 68,
-        borderRadius: 16,
+        borderRadius: borderRadius.md,
         backgroundColor: 'transparent',
-        gap: 4,
+        gap: spacing.xs,
     },
     dayChipSelected: {
         backgroundColor: colors.primary,
-        ...shadows.glow,
     },
     dayChipToday: {
         backgroundColor: colors.accentSoft,
     },
     dayChipLabel: {
-        fontSize: 11,
+        ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '500',
         textTransform: 'uppercase',
         letterSpacing: 0.3,
     },
     dayChipLabelSelected: { color: 'rgba(255,255,255,0.8)' },
     dayChipNum: {
         fontSize: 17,
-        fontWeight: '700',
         color: colors.text,
     },
-    dayChipNumSelected: { color: '#fff' },
+    dayChipNumSelected: { color: '#FFF' },
     todayDot: {
         width: 5,
         height: 5,
@@ -628,8 +617,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        marginTop: 4,
-        ...shadows.medium,
+        marginTop: spacing.xs,
         overflow: 'hidden',
     },
     sheetHeader: {
@@ -644,7 +632,6 @@ const styles = StyleSheet.create({
     },
     sheetDate: {
         fontSize: 17,
-        fontWeight: '700',
         color: colors.text,
         letterSpacing: -0.3,
     },
@@ -656,20 +643,21 @@ const styles = StyleSheet.create({
     painBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: spacing.xs,
         backgroundColor: colors.error,
-        paddingHorizontal: 10,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 5,
         borderRadius: borderRadius.round,
     },
     painBadgeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '700',
+        // ...typography.caption,
+    color: '#FFF',
+        
+
     },
     scrollContent: {
         paddingTop: spacing.m,
-        paddingBottom: 40,
+        paddingBottom: spacing.xxl,
     },
 
     // ── Summary card
@@ -697,13 +685,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     ringPercent: {
-        fontSize: 13,
-        fontWeight: '700',
+        ...typography.caption,
+
         color: colors.text,
     },
     statsCol: {
         flex: 1,
-        gap: 8,
+        gap: spacing.sm,
     },
     statItem: {
         flexDirection: 'row',
@@ -711,11 +699,11 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     statChipText: {
-        fontSize: 12,
-        fontWeight: '700',
+        ...typography.caption,
+
     },
     statLabel: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textSecondary,
         width: 45,
     },
@@ -731,9 +719,8 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     statNum: {
-        fontSize: 11,
+        ...typography.caption,
         color: colors.text,
-        fontWeight: '600',
         width: 28,
         textAlign: 'right',
     },
@@ -748,7 +735,7 @@ const styles = StyleSheet.create({
     },
     notesText: {
         flex: 1,
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textSecondary,
         fontStyle: 'italic',
         lineHeight: 18,
@@ -767,13 +754,13 @@ const styles = StyleSheet.create({
         width: 52,
         alignItems: 'center',
         paddingTop: 2,
-        marginRight: 10,
+        marginRight: spacing.sm,
     },
     cardTime: {
-        fontSize: 11,
-        fontWeight: '600',
+        ...typography.caption,
+
         color: colors.textSecondary,
-        marginBottom: 8,
+        marginBottom: spacing.sm,
         textAlign: 'center',
     },
     cardTimeline: {
@@ -783,7 +770,7 @@ const styles = StyleSheet.create({
     timelineDot: {
         width: 12,
         height: 12,
-        borderRadius: 6,
+        borderRadius: borderRadius.s,
         backgroundColor: colors.border,
         borderWidth: 2,
         borderColor: colors.surface,
@@ -797,7 +784,7 @@ const styles = StyleSheet.create({
         flex: 1,
         width: 2,
         backgroundColor: colors.border,
-        marginTop: 4,
+        marginTop: spacing.xs,
         borderRadius: 1,
         opacity: 0.5,
     },
@@ -812,7 +799,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border + '80',
         overflow: 'hidden',
-        ...shadows.soft,
     },
     cardDone: {
         borderColor: colors.border + '40',
@@ -841,8 +827,8 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         flex: 1,
-        fontSize: 15,
-        fontWeight: '600',
+        ...typography.body,
+
         color: colors.text,
         lineHeight: 21,
         letterSpacing: -0.2,
@@ -866,43 +852,43 @@ const styles = StyleSheet.create({
         borderColor: colors.accent,
     },
     cardFeedback: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textSecondary,
         fontStyle: 'italic',
-        marginBottom: 8,
+        marginBottom: spacing.sm,
         lineHeight: 17,
     },
     cardFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
         flexWrap: 'wrap',
     },
     energyChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: borderRadius.round,
         backgroundColor: 'transparent',
         borderWidth: 1,
-        gap: 4,
+        gap: spacing.xs,
     },
     energyLabel: {
-        fontSize: 11,
-        fontWeight: '700',
+        ...typography.caption,
+
         textTransform: 'capitalize',
         color: colors.textPrimary,
     },
     missedChip: {
         backgroundColor: colors.warning + '20',
-        paddingHorizontal: 8,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: borderRadius.round,
     },
     missedText: {
-        fontSize: 10,
-        fontWeight: '700',
+        ...typography.caption,
+
         color: colors.warning,
         textTransform: 'uppercase',
         letterSpacing: 0.3,
@@ -927,7 +913,6 @@ const styles = StyleSheet.create({
     },
     progressPct: {
         fontSize: 9,
-        fontWeight: '700',
         color: colors.accent,
         zIndex: 1,
     },
@@ -941,20 +926,20 @@ const styles = StyleSheet.create({
     emptyIcon: {
         width: 64,
         height: 64,
-        borderRadius: 32,
+        borderRadius: borderRadius.lg,
         backgroundColor: colors.l2,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: spacing.m,
     },
     emptyTitle: {
-        fontSize: 16,
-        fontWeight: '700',
+        ...typography.body,
+
         color: colors.text,
         marginBottom: 6,
     },
     emptySubtitle: {
-        fontSize: 13,
+        ...typography.caption,
         color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 20,

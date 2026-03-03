@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
-import { colors, typography, spacing, shadows, borderRadius } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
 import { useAuth } from '@clerk/clerk-expo';
@@ -399,15 +399,15 @@ const styles = StyleSheet.create({
     },
     undoBtn: {
         backgroundColor: colors.surface,
-        paddingHorizontal: 12,
+        paddingHorizontal: spacing.s,
         paddingVertical: 6,
         borderRadius: borderRadius.s,
         borderWidth: 1,
         borderColor: colors.border,
     },
     undoBtnText: {
-        fontSize: 12,
-        fontWeight: 'bold',
+        ...typography.caption,
+
         color: colors.primary,
     },
     inputGroup: {
@@ -416,14 +416,13 @@ const styles = StyleSheet.create({
     label: {
         ...typography.caption,
         marginBottom: spacing.s,
-        fontWeight: 'bold',
         textTransform: 'uppercase',
     },
     input: {
         backgroundColor: colors.surface,
         borderRadius: borderRadius.m,
         padding: spacing.m,
-        fontSize: 16,
+        ...typography.body,
         color: colors.text,
         borderWidth: 1,
         borderColor: colors.border,
@@ -442,31 +441,30 @@ const styles = StyleSheet.create({
         gap: spacing.m,
     },
     progressValue: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        ...typography.h1,
+
     },
     customSliderTrack: {
         width: '100%',
         height: 12,
         backgroundColor: colors.border + '60',
-        borderRadius: 6,
+        borderRadius: borderRadius.s,
         justifyContent: 'center',
-        marginVertical: 14,
+        marginVertical: spacing.md,
     },
     customSliderFill: {
         height: '100%',
-        borderRadius: 6,
+        borderRadius: borderRadius.s,
     },
     customSliderThumb: {
         position: 'absolute',
         width: 24,
         height: 24,
-        borderRadius: 12,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.surface,
         borderWidth: 2,
         borderColor: colors.textPrimary,
         marginLeft: -12, // Offset to center thumb on the value
-        ...shadows.soft,
     },
     energyRow: {
         flexDirection: 'row',
@@ -483,8 +481,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.m,
         backgroundColor: colors.surface,
         borderRadius: borderRadius.m,
         borderWidth: 1,
@@ -495,13 +493,13 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary + '10', // 6% tint
     },
     scheduleText: {
-        fontSize: 14,
-        fontWeight: '500',
+        ...typography.body,
+
         color: colors.text,
     },
     energyBtn: {
         flex: 1,
-        paddingVertical: 12,
+        paddingVertical: spacing.s,
         borderRadius: borderRadius.m,
         borderWidth: 1,
         alignItems: 'center',
@@ -510,23 +508,25 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
     },
     energyText: {
-        fontSize: 14,
+        ...typography.body,
     },
     footer: {
-        padding: spacing.l,
+        paddingHorizontal: spacing.l,
+        paddingTop: spacing.m,
         backgroundColor: colors.background,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
     },
     saveBtn: {
         backgroundColor: colors.primary,
-        paddingVertical: 16,
+        paddingVertical: spacing.m,
         borderRadius: borderRadius.xl,
         alignItems: 'center',
-        ...shadows.glow,
     },
     saveBtnText: {
-        color: colors.buttonPrimaryText,
-        fontWeight: 'bold',
-        fontSize: 18,
+        ...typography.subheader,
+    color: colors.buttonPrimaryText,
+        
     },
     dateBtn: {
         flexDirection: 'row',
@@ -541,6 +541,5 @@ const styles = StyleSheet.create({
     dateText: {
         ...typography.body,
         color: colors.text,
-        fontWeight: '500',
     }
 });

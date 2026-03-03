@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 type HeatmapMode = 'pain' | 'fatigue';
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     },
     title: {
         ...typography.bodyBold,
-        fontSize: 16,
+        ...typography.body,
     },
     subtitle: {
         ...typography.bodyBold,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     },
     axisText: {
         ...typography.caption,
-        fontSize: 10,
+        ...typography.caption,
         position: 'absolute',
     },
     scrollContent: {
@@ -378,10 +378,10 @@ const styles = StyleSheet.create({
     },
     grid: {
         flexDirection: 'row',
-        gap: 4,
+        gap: spacing.xs,
     },
     weekColumn: {
-        gap: 4,
+        gap: spacing.xs,
     },
     node: {
         width: 16,
@@ -398,24 +398,24 @@ const styles = StyleSheet.create({
     nodeText: {
         fontSize: 8,
         fontWeight: '700' as const,
-        color: '#fff',
+        color: '#FFF',
         lineHeight: 10,
     },
     footer: {
         marginTop: spacing.m,
-        gap: 10,
+        gap: spacing.sm,
     },
     toggleRow: {
         flexDirection: 'row',
-        gap: 8,
+        gap: spacing.sm,
     },
     toggleBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
         paddingVertical: 6,
-        paddingHorizontal: 14,
-        borderRadius: 20,
+        paddingHorizontal: spacing.md,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.surfaceSoft,
         borderWidth: 1,
         borderColor: colors.border,
@@ -429,28 +429,28 @@ const styles = StyleSheet.create({
         borderColor: '#7C3AED',
     },
     toggleText: {
-        fontSize: 12,
+        ...typography.caption,
         fontWeight: '600' as const,
         color: colors.textSecondary,
     },
     toggleTextActive: {
-        color: '#fff',
+        color: '#FFF',
     },
     scaleRow: {
         flexDirection: 'row',
-        gap: 4,
+        gap: spacing.xs,
     },
     scaleNode: {
         width: 22,
         height: 22,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
         alignItems: 'center' as const,
         justifyContent: 'center' as const,
     },
     scaleNodeText: {
         fontSize: 9,
         fontWeight: '700' as const,
-        color: '#fff',
+        color: '#FFF',
     },
 });
 
@@ -469,7 +469,6 @@ const modalStyles = StyleSheet.create({
         paddingHorizontal: spacing.l,
         paddingTop: spacing.m,
         paddingBottom: spacing.xl,
-        ...shadows.medium,
     },
     handle: {
         width: 40,
@@ -488,15 +487,14 @@ const modalStyles = StyleSheet.create({
     dayTypePill: {
         alignSelf: 'flex-start',
         backgroundColor: colors.accentSoft,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingHorizontal: spacing.s,
+        paddingVertical: spacing.xs,
         borderRadius: borderRadius.round,
         marginBottom: spacing.m,
     },
     dayTypeText: {
         ...typography.caption,
         color: colors.primary,
-        fontWeight: '700',
     },
     statsContainer: {
         gap: spacing.m,
@@ -519,17 +517,18 @@ const modalStyles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        marginBottom: 4,
+        marginBottom: spacing.xs,
     },
     statLabel: {
         ...typography.caption,
-        color: colors.textSecondary,
-        fontSize: 12,
-        fontWeight: '600',
+        ...typography.caption,
+    color: colors.textSecondary,
+        
+
     },
     statValue: {
         ...typography.bodyBold,
-        fontSize: 16,
+        ...typography.body,
         color: colors.text,
         marginTop: 2,
     },
@@ -543,30 +542,29 @@ const modalStyles = StyleSheet.create({
     taskCardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
         marginBottom: spacing.s,
     },
     taskCardTitle: {
         ...typography.bodyBold,
-        fontSize: 14,
+        ...typography.body,
         color: colors.text,
     },
     taskProgressBg: {
         height: 8,
         backgroundColor: colors.border,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
         overflow: 'hidden',
-        marginBottom: 8,
+        marginBottom: spacing.sm,
     },
     taskProgressFill: {
         height: '100%',
         backgroundColor: colors.success,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
     },
     taskCardSubtitle: {
         ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '500',
     },
     notesCard: {
         backgroundColor: colors.surfaceSoft,
@@ -583,7 +581,7 @@ const modalStyles = StyleSheet.create({
     },
     notesCardTitle: {
         ...typography.bodyBold,
-        fontSize: 13,
+        ...typography.caption,
         color: colors.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -612,7 +610,8 @@ const modalStyles = StyleSheet.create({
     },
     closeBtnText: {
         ...typography.bodyBold,
-        color: '#fff',
-        fontSize: 15,
+        ...typography.body,
+    color: '#FFF',
+        
     },
 });

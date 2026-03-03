@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { colors, fonts, shadows, borderRadius } from '../theme';
+import {colors, fonts, borderRadius, typography, spacing} from '../theme';
 
 interface Props {
   children?: ReactNode;
@@ -57,36 +57,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0EEE9', // Calm Tech Gradient Start
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   logo: {
     width: 300,
     height: 300,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...typography.h2,
+
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: spacing.m,
   },
   message: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textLight,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: spacing.xl,
     lineHeight: 24,
   },
   button: {
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.l,
     borderRadius: borderRadius.m,
-    ...shadows.soft,
   },
   buttonText: {
+    ...typography.body,
     color: colors.buttonPrimaryText,
-    fontSize: 16,
-    fontWeight: '600',
+    
+
   }
 });

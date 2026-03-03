@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import Svg, { Rect, G, Text as SvgText } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -143,11 +143,10 @@ const styles = StyleSheet.create({
     dot: {
         width: 8,
         height: 8,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
     },
     legendText: {
         ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '600',
     }
 });

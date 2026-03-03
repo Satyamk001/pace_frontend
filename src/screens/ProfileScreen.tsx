@@ -4,7 +4,7 @@ import {
     RefreshControl, Switch, ActivityIndicator, Animated
 } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
+import {colors, typography, spacing, borderRadius, layout} from '../theme';
 import { MascotAvatar } from '../components/MascotAvatar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createApiService } from '../services/api';
@@ -280,8 +280,8 @@ const styles = StyleSheet.create({
         gap: spacing.s,
     },
     userName: {
-        fontSize: 20,
-        fontWeight: '700',
+        ...typography.h3,
+
         color: colors.text,
         letterSpacing: -0.4,
     },
@@ -289,15 +289,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.premium + '18',
-        paddingHorizontal: 8,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: borderRadius.round,
         borderWidth: 1,
         borderColor: colors.premium + '40',
     },
     proTagText: {
-        fontSize: 10,
-        fontWeight: '800',
+        ...typography.caption,
+
         color: colors.premium,
         letterSpacing: 0.6,
     },

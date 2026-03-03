@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
+import {colors, fonts, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
@@ -312,28 +312,28 @@ const styles = StyleSheet.create({
     marginBottom: spacing.l,
   },
   greeting: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...typography.caption,
+
     color: colors.textSecondary,
     letterSpacing: 0.2,
     marginBottom: 2,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
+    ...typography.h2,
+
     color: colors.text,
     letterSpacing: -0.5,
   },
   headerBadge: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: borderRadius.l,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
 
   // ── Summary Banner
@@ -344,7 +344,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.l,
     borderWidth: 1,
     borderColor: colors.border + '70',
-    ...shadows.soft,
   },
   bannerHeader: {
     flexDirection: 'row',
@@ -360,19 +359,18 @@ const styles = StyleSheet.create({
   bannerDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: borderRadius.s,
     backgroundColor: colors.primary,
   },
   bannerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.body,
+
     color: colors.text,
     letterSpacing: -0.1,
   },
   bannerDate: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
 
   // Stat tiles
@@ -388,21 +386,20 @@ const styles = StyleSheet.create({
   statIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: borderRadius.m,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.body,
+
     color: colors.text,
     letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 11,
+    ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   statDivider: {
     width: 1,
@@ -415,7 +412,7 @@ const styles = StyleSheet.create({
   medProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
     marginTop: spacing.m,
     paddingTop: spacing.s,
     borderTopWidth: 1,
@@ -433,8 +430,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.round,
   },
   medProgressLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...typography.caption,
+
     minWidth: 60,
     textAlign: 'right',
   },
@@ -447,15 +444,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.m,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.subheader,
+
     color: colors.text,
     letterSpacing: -0.3,
   },
   sectionCaption: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
 
   // ── Module cards (full-width rows)
@@ -470,13 +466,12 @@ const styles = StyleSheet.create({
     padding: spacing.m,
     borderWidth: 1,
     borderColor: colors.border + '60',
-    ...shadows.soft,
     gap: spacing.m,
   },
   moduleIconCircle: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -485,21 +480,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   moduleTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.body,
+
     color: colors.text,
     letterSpacing: -0.2,
     marginBottom: 2,
   },
   moduleDesc: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '400',
   },
   moduleArrow: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: borderRadius.s,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

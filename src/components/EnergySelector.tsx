@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ScalePressable } from './ui/ScalePressable';
-import { colors, spacing, shadows, borderRadius } from '../theme';
+import {colors, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface EnergySelectorProps {
@@ -24,10 +24,6 @@ export const EnergySelector = ({ value, onChange }: EnergySelectorProps) => {
                     borderColor: level.color,
                     backgroundColor: colors.surface,
                     borderWidth: 2,
-                    shadowColor: level.color,
-                    shadowOpacity: 0.25,
-                    shadowRadius: 8,
-                    elevation: 5,
                     transform: [{ scale: 1.05 }]
                 } : {};
 
@@ -63,18 +59,17 @@ export const EnergySelector = ({ value, onChange }: EnergySelectorProps) => {
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        gap: 12,
+        gap: spacing.s,
         paddingVertical: spacing.s,
         // justifyContent: 'space-between', // Optional: spread them out
     },
     btn: {
         flex: 1, // Equal width
         height: 80,
-        borderRadius: 24,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.surface,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.soft,
         borderWidth: 1,
         borderColor: colors.border,
     },
@@ -85,8 +80,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     label: {
-        fontSize: 12,
-        fontWeight: '600',
+        ...typography.caption,
+
         marginTop: 6,
         letterSpacing: 0.3
     }

@@ -1,3 +1,4 @@
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import React from 'react';
 import { View, Text, Platform } from 'react-native';
 
@@ -51,8 +52,8 @@ export const MyDateTimePicker = ({ value, mode, onChange }: MyDateTimePickerProp
       }
 
       return (
-        <View style={{ padding: 10, backgroundColor: '#f0f0f0', borderRadius: 8 }}>
-            <Text style={{ marginBottom: 5, fontSize: 12, color: '#666' }}>
+        <View style={{ padding: 10, backgroundColor: colors.surfaceSoft, borderRadius: 8 }}>
+            <Text style={{ marginBottom: 5, fontSize: 12, color: colors.textSecondary }}>
                 {mode === 'time' ? 'Select Time (Web)' : 'Select Date (Web)'}
             </Text>
             {/* @ts-ignore: React Native Web supports createElement */}
@@ -61,10 +62,10 @@ export const MyDateTimePicker = ({ value, mode, onChange }: MyDateTimePickerProp
                 value={inputValue} 
                 onChange={handleChange}
                 style={{
-                    padding: 8,
-                    borderRadius: 4,
+                    padding: spacing.sm,
+                    borderRadius: borderRadius.s,
                     border: '1px solid #ccc',
-                    fontSize: 16
+                    ...typography.body,
                 }}
             />
         </View>

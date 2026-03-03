@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, borderRadius, shadows, spacing } from '../../theme';
+import {colors, fonts, borderRadius, spacing, typography} from '../../theme';
 
 interface MedicineCardProps {
     med: any;
@@ -55,7 +55,6 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.lg,
         marginBottom: spacing.md,
-        ...shadows.soft,
     },
     medName: { ...fonts.bodyBold, fontSize: 16 },
     medDosage: { fontWeight: '400', color: colors.textLight, fontSize: 14 },
@@ -69,15 +68,15 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.round,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4
+        gap: spacing.xs
     },
     timeSlotTaken: {
         backgroundColor: colors.primary,
     },
     timeText: {
-        color: colors.primary,
-        fontWeight: '600',
-        fontSize: 12,
+        ...typography.caption,
+    color: colors.primary,
+        
     },
     timeTextTaken: {
         color: '#FFF'

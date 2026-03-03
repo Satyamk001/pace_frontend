@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, borderRadius, shadows, spacing } from '../../theme';
+import {colors, typography, borderRadius, spacing} from '../../theme';
 import { SkeletonBox } from './SkeletonLoader';
 
 interface StatCardProps {
@@ -36,36 +36,32 @@ const styles = StyleSheet.create({
     statCard: {
         width: '48%',
         backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
+        borderRadius: borderRadius.md,
         padding: spacing.m,
         marginBottom: spacing.m,
         flexDirection: 'row',
         alignItems: 'center',
-        ...shadows.soft,
         borderWidth: 1,
-        borderColor: colors.border + '20',
+        borderColor: colors.border,
     },
     statIconContainer: {
         width: 36,
         height: 36,
-        borderRadius: 12,
+        borderRadius: borderRadius.m,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: spacing.s,
     },
     statValue: {
         ...typography.h3,
-        fontSize: 18,
         color: colors.text,
     },
     suffix: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: 'normal',
     },
     statLabel: {
         ...typography.caption,
-        fontSize: 11,
         color: colors.textSecondary,
     },
 });

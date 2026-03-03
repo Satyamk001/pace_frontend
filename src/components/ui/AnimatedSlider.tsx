@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, StyleSheet, PanResponder, Animated, LayoutChangeEvent } from 'react-native';
-import { colors, shadows } from '../../theme';
+import {colors, typography, spacing, borderRadius} from '../../theme';
 
 interface AnimatedSliderProps {
     value: number; // 0 to 100
@@ -107,23 +107,22 @@ const styles = StyleSheet.create({
     track: {
         height: 8,
         backgroundColor: colors.border,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
         overflow: 'hidden',
         width: '100%',
     },
     fill: {
         height: '100%',
         backgroundColor: colors.primary,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
     },
     thumb: {
         position: 'absolute',
         left: -12,
         width: 24,
         height: 24,
-        borderRadius: 12,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.surface,
-        ...shadows.soft,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
@@ -132,7 +131,7 @@ const styles = StyleSheet.create({
     innerThumb: {
         width: 8,
         height: 8,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
         backgroundColor: colors.primary,
     }
 });

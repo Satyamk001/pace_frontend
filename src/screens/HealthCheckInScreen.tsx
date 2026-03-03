@@ -14,7 +14,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { createApiService } from '../services/api';
 import { CustomSlider } from '../components/ui/CustomSlider';
 import { MoodSelector } from '../components/MoodSelector';
@@ -254,7 +254,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.m,
     borderWidth: 1,
     borderColor: colors.border,
-    ...shadows.soft,
   },
   rowCard: {
     flexDirection: 'row',
@@ -288,7 +287,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.soft,
   },
   stepperValue: {
     ...typography.h3,
@@ -324,7 +322,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.l,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.medium, // Elevated shadow for CTA
+    ...{} /* removed shadow */, // Elevated shadow for CTA
   },
   saveBtnText: {
     ...typography.button,

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@clerk/clerk-expo';
-import { colors, typography, spacing, shadows, borderRadius, layout } from '../theme';
+import {colors, typography, spacing, borderRadius, layout} from '../theme';
 import { createApiService } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -331,18 +331,18 @@ const styles = StyleSheet.create({
   greetingIconWrap: {
       width: 48,
       height: 48,
-      borderRadius: 16,
+      borderRadius: borderRadius.md,
       backgroundColor: colors.surface, // Solid clean surface
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      ...shadows.soft,
   },
   greeting: {
       ...typography.header,
-      color: colors.text,
-      fontSize: 24,
+      ...typography.h2,
+    color: colors.text,
+      
   },
   subGreeting: {
       ...typography.caption,
@@ -357,7 +357,6 @@ const styles = StyleSheet.create({
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
-      ...shadows.glow
   },
   sectionHeader: {
       flexDirection: 'row',
@@ -369,8 +368,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
       ...typography.subheader,
-      color: colors.text,
-      fontSize: 18
+      ...typography.subheader,
+    color: colors.text,
+      
   },
   filterRow: {
       paddingRight: 0,
@@ -382,10 +382,10 @@ const styles = StyleSheet.create({
   filterChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingLeft: 12,
-      paddingRight: 4,
+      paddingLeft: spacing.s,
+      paddingRight: spacing.xs,
       height: 30,
-      borderRadius: 999,
+      borderRadius: borderRadius.round,
       backgroundColor: colors.surfaceSoft,
       borderWidth: 1,
       borderColor: colors.border,
@@ -393,11 +393,9 @@ const styles = StyleSheet.create({
   filterChipActive: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
-      ...shadows.soft,
   },
   filterText: {
       ...typography.caption,
-      fontWeight: '700',
       color: colors.textPrimary,
       marginRight: 6,
   },
@@ -417,8 +415,8 @@ const styles = StyleSheet.create({
   },
   filterCountText: {
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 11,
-      fontWeight: '800',
+      ...typography.caption,
+
       color: colors.textSecondary,
   },
   filterCountTextActive: {

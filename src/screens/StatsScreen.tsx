@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
-import { colors, typography, spacing, shadows, borderRadius } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { createApiService } from '../services/api';
 import { HealthTrendsChart } from '../components/HealthTrendsChart';
 import { useFocusEffect } from '@react-navigation/native';
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...typography.h2,
-        fontSize: 24,
+        ...typography.h2,
         color: colors.text,
     },
     rangeContainer: {
@@ -241,27 +241,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         backgroundColor: colors.surfaceSoft,
         borderRadius: borderRadius.m,
-        padding: 4,
+        padding: spacing.xs,
     },
     rangeBtn: {
         flex: 1,
-        paddingVertical: 8,
+        paddingVertical: spacing.sm,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: borderRadius.s,
     },
     rangeBtnActive: {
         backgroundColor: colors.surface,
-        ...shadows.soft,
     },
     rangeText: {
         ...typography.caption,
-        fontWeight: '600',
         color: colors.textSecondary,
     },
     rangeTextActive: {
         color: colors.accent,
-        fontWeight: '700',
     },
     scrollContent: {
         paddingHorizontal: spacing.l,
@@ -278,7 +275,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.l,
         padding: spacing.m,
         marginBottom: spacing.l,
-        ...shadows.soft,
         borderWidth: 1,
         borderColor: colors.border + '20',
     },
@@ -290,13 +286,12 @@ const styles = StyleSheet.create({
     },
     chartTitle: {
         ...typography.bodyBold,
-        fontSize: 16,
+        ...typography.body,
         color: colors.text,
     },
     chartSubtitle: {
         ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '600',
     },
     navArrows: {
         flexDirection: 'row',
@@ -307,19 +302,18 @@ const styles = StyleSheet.create({
         padding: spacing.xs,
         // backgroundColor: colors.surface,
         // borderRadius: borderRadius.round,
-        borderRadius: 10,
+        borderRadius: borderRadius.m,
         backgroundColor: colors.accentSoft,
         color: colors.accent ,
-        ...shadows.soft,
     },
     monthNav: {
         flexDirection: 'row',
-        gap: 8,
+        gap: spacing.sm,
     },
     navBtn: {
         padding: 6,
         backgroundColor: colors.surfaceSoft,
-        borderRadius: 8,
+        borderRadius: borderRadius.s,
     },
     navBtnDisabled: {
         opacity: 0.3,
@@ -337,7 +331,7 @@ const styles = StyleSheet.create({
     emptyIconCircle: {
         width: 60,
         height: 60,
-        borderRadius: 30,
+        borderRadius: borderRadius.lg,
         backgroundColor: colors.surfaceSoft,
         alignItems: 'center',
         justifyContent: 'center',
@@ -357,15 +351,15 @@ const styles = StyleSheet.create({
         backgroundColor: colors.text, // Dark mode aesthetic for premium
         padding: spacing.l,
         borderRadius: borderRadius.l,
-        ...shadows.medium,
     },
     premiumContent: {
         flex: 1,
     },
     premiumTitle: {
         ...typography.bodyBold,
-        color: colors.surface,
-        fontSize: 16,
+        ...typography.body,
+    color: colors.surface,
+        
     },
     premiumSubtitle: {
         ...typography.caption,
@@ -377,14 +371,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.accent,
-        paddingHorizontal: 12,
+        paddingHorizontal: spacing.s,
         paddingVertical: 6,
-        borderRadius: 20,
-        gap: 4,
+        borderRadius: borderRadius.l,
+        gap: spacing.xs,
     },
     premiumBtnText: {
-        color: colors.surface,
-        fontWeight: 'bold',
-        fontSize: 12,
+        ...typography.caption,
+    color: colors.surface,
+        
     },
 });

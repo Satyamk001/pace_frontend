@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import { colors, shadows } from '../../theme';
+import {colors, typography, spacing, borderRadius} from '../../theme';
 
 interface CustomSliderProps {
     value: number;
@@ -135,22 +135,22 @@ export const CustomSlider = ({
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 24,
+        marginBottom: spacing.l,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: spacing.s,
     },
     label: {
-        fontSize: 18,
-        fontWeight: '600',
+        ...typography.subheader,
+
         color: colors.text,
     },
     value: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        ...typography.subheader,
+
     },
     trackContainer: {
         height: TRACK_HEIGHT,
@@ -177,14 +177,11 @@ const styles = StyleSheet.create({
         borderRadius: THUMB_SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
-        ...shadows.soft,
-        shadowOpacity: 0.2, // Stronger shadow for thumb
-        elevation: 4,
     },
     thumbInner: {
         width: 12,
         height: 12,
-        borderRadius: 6,
-        backgroundColor: 'white',
+        borderRadius: borderRadius.s,
+        backgroundColor: colors.surface,
     }
 });

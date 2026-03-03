@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { createApiService } from '../services/api';
 
 import { useAuth } from '@clerk/clerk-expo';
@@ -131,8 +131,9 @@ const styles = StyleSheet.create({
     },
     title: {
         ...typography.header,
-        color: colors.primary,
-        fontSize: 32,
+        ...typography.h1,
+    color: colors.primary,
+        
         marginBottom: spacing.s,
     },
     subtitle: {
@@ -143,9 +144,8 @@ const styles = StyleSheet.create({
     card: {
         margin: spacing.l,
         backgroundColor: colors.surface,
-        borderRadius: 24,
+        borderRadius: borderRadius.l,
         padding: spacing.xl,
-        ...shadows.medium,
         alignItems: 'center',
     },
     priceContainer: {
@@ -155,9 +155,9 @@ const styles = StyleSheet.create({
     },
     currency: {
         ...typography.subheader,
-        fontSize: 24,
+        ...typography.h2,
         color: colors.text,
-        marginRight: 4,
+        marginRight: spacing.xs,
     },
     price: {
         ...typography.header,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     period: {
         ...typography.body,
         color: colors.textLight,
-        marginLeft: 4,
+        marginLeft: spacing.xs,
     },
     divider: {
         height: 1,
@@ -187,20 +187,21 @@ const styles = StyleSheet.create({
     },
     featureText: {
         ...typography.body,
-        fontSize: 16,
+        ...typography.body,
     },
     subscribeBtn: {
         width: '100%',
         backgroundColor: colors.primary,
-        paddingVertical: 16,
+        paddingVertical: spacing.m,
         borderRadius: borderRadius.l,
         alignItems: 'center',
         marginBottom: spacing.m,
     },
     subscribeText: {
         ...typography.subheader,
-        color: colors.buttonPrimaryText,
-        fontSize: 18,
+        ...typography.subheader,
+    color: colors.buttonPrimaryText,
+        
     },
     disclaimer: {
         ...typography.caption,
@@ -208,7 +209,10 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     footer: {
-        padding: spacing.l,
+        paddingHorizontal: spacing.l,
+        paddingTop: spacing.m,
         backgroundColor: colors.background,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
     }
 });

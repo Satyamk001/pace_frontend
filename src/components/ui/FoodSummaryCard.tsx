@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fonts, borderRadius, shadows, spacing } from '../../theme';
+import {colors, fonts, borderRadius, spacing, typography} from '../../theme';
 
 interface FoodSummaryCardProps {
     totalCalories: number;
@@ -22,7 +22,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.lg,
         alignItems: 'center',
         marginBottom: spacing.lg,
-        ...shadows.soft,
     },
     summaryLabel: {
         ...fonts.caption,
@@ -37,8 +36,7 @@ const styles = StyleSheet.create({
         color: colors.primary,
     },
     unit: {
-        fontSize: 20,
+        ...typography.h3,
         color: colors.textLight,
-        fontWeight: '400',
     },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { colors, spacing, typography, shadows, borderRadius } from '../../theme';
+import {colors, spacing, typography, borderRadius} from '../../theme';
 
 interface DialogAction {
   text: string;
@@ -83,17 +83,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.l,
     padding: spacing.l,
-    ...shadows.medium,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...typography.subheader,
+
     color: colors.text,
     marginBottom: spacing.s,
     textAlign: 'center',
   },
   message: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textLight,
     marginBottom: spacing.l,
     textAlign: 'center',
@@ -119,8 +118,8 @@ const styles = StyleSheet.create({
     // Transparent or light gray if needed
   },
   actionText: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.body,
+
     color: colors.primary,
   },
   destructiveText: {

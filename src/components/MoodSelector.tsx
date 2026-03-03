@@ -8,7 +8,7 @@ import Animated, {
     Easing
 } from 'react-native-reanimated';
 import { ScalePressable } from './ui/ScalePressable';
-import { colors, spacing, shadows, borderRadius } from '../theme';
+import {colors, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface MoodSelectorProps {
@@ -90,34 +90,33 @@ export const MoodSelector = ({ selectedMood, onSelectMood }: MoodSelectorProps) 
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: spacing.l,
-        gap: 12,
+        gap: spacing.s,
         paddingVertical: spacing.s,
     },
     moodBtn: {
         width: 68,
         height: 80,
-        borderRadius: 24,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.surface, // Clean surface
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.soft, // Soft shadow for depth
+        ...{} /* removed shadow */, // Soft shadow for depth
         borderWidth: 1,
         borderColor: colors.border,
     },
     moodBtnActive: {
         width: 68,
         height: 80,
-        borderRadius: 24,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.surface,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2, 
-        ...shadows.glow, // STRICT THEME USAGE
+        ...{} /* removed shadow */, // STRICT THEME USAGE
     },
     label: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.textPrimary,
-        fontWeight: '600',
         marginTop: 6,
         letterSpacing: 0.3
     }

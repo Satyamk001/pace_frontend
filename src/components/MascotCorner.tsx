@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { shadows, colors } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 
 interface MascotCornerProps {
   mood?: 'HAPPY' | 'SLEEPY' | 'Working';
@@ -39,16 +39,15 @@ const styles = StyleSheet.create({
   bubble: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
     borderColor: 'white',
-    ...shadows.medium,
   },
   mascot: {
-      fontSize: 32,
+      ...typography.h1,
   },
   moodBadge: {
       position: 'absolute',
@@ -57,13 +56,13 @@ const styles = StyleSheet.create({
       backgroundColor: colors.accent,
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: borderRadius.m,
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 2,
       borderColor: 'white',
   },
   moodIcon: {
-      fontSize: 12,
+      ...typography.caption,
   }
 });

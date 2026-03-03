@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { createApiService } from '../services/api';
@@ -166,7 +166,7 @@ export const WeightScreen = () => {
                         <StatCard label="Lowest" value={stats.min} icon="arrow-down" color={colors.success} isLoading={loading} suffix="" />
                         <StatCard label="Highest" value={stats.max} icon="arrow-up" color={colors.error} isLoading={loading} suffix="" />
                         <StatCard label="Average" value={stats.avg} icon="analytics" color={colors.accent} isLoading={loading} suffix="" />
-                        <View style={{ width: '48%', backgroundColor: 'transparent', borderWidth: 0, elevation: 0, shadowOpacity: 0 }} />
+                        <View style={{ width: '48%', backgroundColor: 'transparent', borderWidth: 0 }} />
                     </View>
 
                     {/* Chart */}
@@ -207,7 +207,7 @@ export const WeightScreen = () => {
                                             strokeWidth: 1,
                                             stroke: colors.border
                                         },
-                                        paddingRight: 10,
+                                        paddingRight: spacing.sm,
                                         fillShadowGradientFrom: colors.accent,
                                         fillShadowGradientTo: colors.accent,
                                         fillShadowGradientFromOpacity: 0.2,
@@ -217,8 +217,8 @@ export const WeightScreen = () => {
                                     withInnerLines={false}
                                     withOuterLines={true}
                                     style={{
-                                        marginVertical: 8,
-                                        borderRadius: 16,
+                                        marginVertical: spacing.sm,
+                                        borderRadius: borderRadius.md,
                                         marginLeft: -30, // Tighten left gap
                                     }}
                                 />
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...typography.h2,
-        fontSize: 24,
+        ...typography.h2,
         color: colors.text,
     },
     rangeContainer: {
@@ -316,27 +316,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         backgroundColor: colors.surfaceSoft,
         borderRadius: borderRadius.m,
-        padding: 4,
+        padding: spacing.xs,
     },
     rangeBtn: {
         flex: 1,
-        paddingVertical: 8,
+        paddingVertical: spacing.sm,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: borderRadius.s,
     },
     rangeBtnActive: {
         backgroundColor: colors.surface,
-        ...shadows.soft,
     },
     rangeText: {
         ...typography.caption,
-        fontWeight: '600',
         color: colors.textSecondary,
     },
     rangeTextActive: {
         color: colors.accent,
-        fontWeight: '700',
     },
     content: { 
         paddingHorizontal: spacing.l, 
@@ -353,7 +350,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.l,
         padding: spacing.m,
         marginBottom: spacing.l,
-        ...shadows.soft,
         borderWidth: 1,
         borderColor: colors.border + '20',
     },
@@ -365,7 +361,7 @@ const styles = StyleSheet.create({
     },
     chartTitle: {
         ...typography.bodyBold,
-        fontSize: 16,
+        ...typography.body,
         color: colors.text,
     },
     chartContainer: {
@@ -385,7 +381,7 @@ const styles = StyleSheet.create({
     emptyIconCircle: {
         width: 60,
         height: 60,
-        borderRadius: 30,
+        borderRadius: borderRadius.lg,
         backgroundColor: colors.surfaceSoft,
         alignItems: 'center',
         justifyContent: 'center',
@@ -399,8 +395,8 @@ const styles = StyleSheet.create({
         ...typography.caption,
         color: colors.textLight,
         textAlign: 'center',
-        paddingHorizontal: 30,
-        marginTop: 4
+        paddingHorizontal: spacing.xl,
+        marginTop: spacing.xs
     },
     inputSection: {
         marginBottom: spacing.xl,
@@ -415,7 +411,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface,
         padding: spacing.m,
         borderRadius: borderRadius.l,
-        ...shadows.soft,
         borderWidth: 1,
         borderColor: colors.border + '20',
     },
@@ -429,8 +424,8 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surfaceSoft,
         borderRadius: borderRadius.m,
         padding: spacing.m,
-        fontSize: 18,
-        fontWeight: '600',
+        ...typography.subheader,
+
         color: colors.text,
     },
     unitText: {
@@ -442,10 +437,9 @@ const styles = StyleSheet.create({
         backgroundColor: colors.accent,
         width: 50,
         height: 50,
-        borderRadius: 25,
+        borderRadius: borderRadius.l,
         alignItems: 'center',
         justifyContent: 'center',
-        ...shadows.glow,
     },
     historyList: {
         gap: spacing.s,
@@ -463,30 +457,28 @@ const styles = StyleSheet.create({
         padding: spacing.m,
         backgroundColor: colors.surface,
         borderRadius: borderRadius.m,
-        ...shadows.soft,
         borderWidth: 1,
         borderColor: colors.border + '20',
     },
     historyDateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
     },
     historyDot: {
         width: 8,
         height: 8,
-        borderRadius: 4,
+        borderRadius: borderRadius.s,
         backgroundColor: colors.accent,
     },
     historyDate: { 
         ...typography.body, 
         color: colors.text,
-        fontWeight: '500', 
     },
     historyRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
     },
     deltaBadge: {
         flexDirection: 'row',
@@ -497,16 +489,17 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.round,
     },
     deltaText: {
-        fontSize: 11,
-        fontWeight: '700',
+        ...typography.caption,
+
     },
     historyValue: { 
         ...typography.bodyBold, 
-        color: colors.primary,
-        fontSize: 18,
+        ...typography.subheader,
+    color: colors.primary,
+        
     },
     historyUnit: {
-        fontSize: 14,
+        ...typography.body,
         color: colors.textSecondary,
         fontWeight: '400' as const,
     },

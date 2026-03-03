@@ -12,7 +12,7 @@ import Animated, {
     withSpring
 } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
-import { colors, spacing, borderRadius, typography, shadows } from '../theme';
+import {colors, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface TaskItemProps {
@@ -179,20 +179,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.surface,
-        borderRadius: borderRadius.l,
+        borderRadius: borderRadius.md,
         paddingVertical: spacing.m,
         paddingHorizontal: spacing.m,
         borderWidth: 1,
-        borderColor: colors.border + '30',
-        elevation: 0,
-        shadowOpacity: 0,
+        borderColor: colors.border,
     },
     cardCompleted: {
         backgroundColor: colors.background,
         borderColor: colors.accent,
         borderStyle: 'dashed',
-        shadowOpacity: 0,
-        elevation: 0,
     },
     checkArea: {
         paddingRight: spacing.m,
@@ -203,11 +199,11 @@ const styles = StyleSheet.create({
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: spacing.sm,
     },
     title: {
         ...typography.bodyBold,
-        fontSize: 15,
+        ...typography.body,
         color: colors.text,
     },
     completedTitle: {
@@ -222,16 +218,16 @@ const styles = StyleSheet.create({
     metaChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 3,
         borderRadius: borderRadius.round,
         borderWidth: 1,
-        gap: 4,
+        gap: spacing.xs,
     },
     metaText: {
         ...typography.caption,
-        fontSize: 11,
-        fontWeight: '700',
+        ...typography.caption,
+
         textTransform: 'capitalize',
         color: colors.textPrimary,
     },
@@ -240,8 +236,8 @@ const styles = StyleSheet.create({
     },
     progressText: {
         ...typography.caption,
-        fontSize: 10,
-        fontWeight: '800',
+        ...typography.caption,
+
         color: colors.primary,
     },
     rightActionContainer: {
@@ -253,7 +249,7 @@ const styles = StyleSheet.create({
     deleteAction: {
         width: 40,
         height: 40,
-        borderRadius: 20,
+        borderRadius: borderRadius.l,
         backgroundColor: colors.mood.pain,
         justifyContent: 'center',
         alignItems: 'center',

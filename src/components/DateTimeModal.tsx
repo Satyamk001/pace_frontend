@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, shadows, borderRadius } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -387,7 +387,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.m,
         borderWidth: 1,
         borderColor: colors.border,
-        ...shadows.soft,
     },
     cardTitle: {
         ...typography.caption,
@@ -451,7 +450,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.l,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.medium,
     },
     primaryBtnText: {
         ...typography.button,

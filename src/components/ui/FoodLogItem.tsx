@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fonts, borderRadius, shadows, spacing } from '../../theme';
+import {colors, fonts, borderRadius, spacing, typography} from '../../theme';
 
 interface FoodLogItemProps {
     name: string;
@@ -29,7 +29,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        ...shadows.soft,
     },
     logMeta: {
         flex: 1,

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import Svg, { Rect, G, Text as SvgText, Line } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -168,22 +168,21 @@ const styles = StyleSheet.create({
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: spacing.sm,
         backgroundColor: colors.surface, // Chip style
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        borderRadius: 20,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderRadius: borderRadius.l,
         borderWidth: 1,
         borderColor: colors.border,
     },
     dot: {
         width: 10,
         height: 10,
-        borderRadius: 5,
+        borderRadius: borderRadius.s,
     },
     legendText: {
         ...typography.caption,
         color: colors.textSecondary,
-        fontWeight: '600',
     }
 });

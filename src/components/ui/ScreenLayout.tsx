@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, layout } from '../../theme';
+import {colors, layout, typography, spacing, borderRadius} from '../../theme';
 
 interface ScreenLayoutProps {
   children: React.ReactNode;

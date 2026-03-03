@@ -8,7 +8,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { useOAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -168,12 +168,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.l,
-    ...shadows.glow,
   },
   logoInner: {
     width: 22,
     height: 22,
-    borderRadius: 4,
+    borderRadius: borderRadius.s,
     borderWidth: 3,
     borderColor: colors.buttonPrimaryText,
     borderTopRightRadius: 10,
@@ -182,7 +181,6 @@ const styles = StyleSheet.create({
 
   wordmark: {
     fontSize: 44,
-    fontWeight: '800',
     color: colors.text,
     letterSpacing: 10,
     textAlign: 'center',
@@ -204,7 +202,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.l,
     paddingVertical: spacing.xl,
-    ...shadows.medium,
   },
 
   dividerRow: {
@@ -223,7 +220,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    fontSize: 11,
   },
 
   // ── Google button ─────────────────────────────────────────
@@ -237,28 +233,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.m,
     paddingHorizontal: spacing.l,
     marginBottom: spacing.l,
-    ...shadows.soft,
   },
   googleIconWrapper: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     backgroundColor: '#4285F4',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.m,
   },
   googleG: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.body,
+    color: '#FFF',
+    
+
     lineHeight: 18,
   },
   googleButtonText: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.body,
+
     color: colors.textPrimary,
     letterSpacing: -0.2,
     marginRight: 28, // visually center text accounting for icon width
@@ -273,6 +269,5 @@ const styles = StyleSheet.create({
   },
   legalLink: {
     color: colors.accent,
-    fontWeight: '500',
   },
 });

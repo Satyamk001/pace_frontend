@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { colors, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 
 interface MascotAvatarProps {
     size?: 'small' | 'medium' | 'large';
@@ -45,15 +45,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 4,
         borderColor: '#FFF',
-        ...shadows.medium,
     },
     squareGlow: {
         borderWidth: 2,
         borderColor: colors.surfaceSoft,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 6,
     }
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, borderRadius, shadows, spacing } from '../../theme';
+import {colors, fonts, borderRadius, spacing, typography} from '../../theme';
 
 interface MedicineFormCardProps {
     editingId: string | null;
@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.lg,
         marginBottom: spacing.lg,
-        ...shadows.soft,
     },
     formTitle: { ...fonts.h3, marginBottom: spacing.md },
     input: {
@@ -86,7 +85,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: colors.surfaceSoft,
         paddingHorizontal: spacing.sm,
-        paddingVertical: 4,
+        paddingVertical: spacing.xs,
         borderRadius: borderRadius.round,
         borderWidth: 1,
         borderColor: colors.border,
@@ -95,7 +94,7 @@ const styles = StyleSheet.create({
     timeAddBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 4,
+        padding: spacing.xs,
     },
     formActions: {
         flexDirection: 'row',

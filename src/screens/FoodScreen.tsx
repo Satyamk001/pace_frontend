@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
+import {colors, fonts, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { createApiService } from '../services/api';
@@ -168,7 +168,6 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.round,
         marginBottom: spacing.lg,
-        ...shadows.medium,
     },
     addButtonText: {
         ...fonts.button,

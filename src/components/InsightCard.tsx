@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, borderRadius, shadows, typography } from '../theme';
+import {colors, spacing, borderRadius, typography} from '../theme';
 
 interface InsightCardProps {
     title: string;
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface, // Clean white/surface
         borderRadius: borderRadius.l, // Soft corners (24px)
         padding: spacing.m,
-        ...shadows.soft, // Very subtle lift
+        ...{} /* removed shadow */, // Very subtle lift
         borderWidth: 1,
         borderColor: colors.border,
         height: 140, // Taller, more vertical breathing room
@@ -57,22 +57,23 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     value: {
-        fontSize: 28, 
-        fontWeight: '700', 
+        ...typography.h1,
+
         color: colors.text,
         letterSpacing: -0.5,
-        marginBottom: 4,
+        marginBottom: spacing.xs,
     },
     title: {
         ...typography.body,
-        fontSize: 14,
-        fontWeight: '600',
+        ...typography.body,
+
         color: colors.text, // Darker than before for readability
         marginBottom: 2,
     },
     subtitle: {
         ...typography.caption,
-        color: colors.textSecondary,
-        fontSize: 11,
+        ...typography.caption,
+    color: colors.textSecondary,
+        
     }
 });

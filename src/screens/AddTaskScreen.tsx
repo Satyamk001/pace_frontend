@@ -14,7 +14,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import {colors, typography, spacing, borderRadius} from '../theme';
 import { createApiService } from '../services/api';
 import { NotificationService } from '../services/NotificationService';
 import { DateTimeModal } from '../components/DateTimeModal';
@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.m,
         borderWidth: 1,
         borderColor: colors.border,
-        ...shadows.soft,
     },
     cardTitle: {
         ...typography.caption,
@@ -310,14 +309,11 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.l,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.medium,
     },
     primaryBtnText: {
         ...typography.button,
     },
     disabledBtn: {
         backgroundColor: colors.buttonDisabledBg,
-        shadowOpacity: 0,
-        elevation: 0,
     }
 });

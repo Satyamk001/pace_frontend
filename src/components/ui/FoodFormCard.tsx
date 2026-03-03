@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { colors, fonts, borderRadius, shadows, spacing } from '../../theme';
+import {colors, fonts, borderRadius, spacing, typography} from '../../theme';
 
 interface FoodFormCardProps {
     name: string;
@@ -61,7 +61,6 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.lg,
         marginBottom: spacing.lg,
-        ...shadows.soft,
     },
     formTitle: {
         ...fonts.h3,

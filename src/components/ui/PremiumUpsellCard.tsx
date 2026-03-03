@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, shadows, spacing } from '../../theme';
+import {colors, borderRadius, spacing, typography} from '../../theme';
 
 interface PremiumUpsellCardProps {
     onPress: () => void;
@@ -50,16 +50,15 @@ const styles = StyleSheet.create({
         backgroundColor: colors.premium,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.soft,
     },
     premiumTitle: {
-        fontWeight: '700',
-        color: colors.premium,
-        fontSize: 15,
+        ...typography.body,
+    color: colors.premium,
+        
         letterSpacing: -0.2,
     },
     premiumSubtitle: {
-        fontSize: 12,
+        ...typography.caption,
         color: colors.premium,
         opacity: 0.75,
         marginTop: 2,

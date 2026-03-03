@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, borderRadius, typography, shadows } from '../theme';
+import {colors, spacing, borderRadius, typography} from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { MOOD_PHRASES } from '../constants';
 
@@ -113,14 +113,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: spacing.m,
-        ...shadows.soft
     },
     textContainer: {
         flex: 1,
     },
     title: {
         ...typography.bodyBold,
-        fontSize: 15,
+        ...typography.body,
         color: colors.text,
     },
     message: {
