@@ -375,7 +375,7 @@ const tabStyles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: colors.accentSoft, // '#ECFDF5' — soft emerald tint
+        backgroundColor: colors.accentSoft2, // '#ECFDF5' — soft emerald tint
         borderRadius: borderRadius.round,
     },
 

@@ -14,6 +14,7 @@ interface DayData {
     notes?: string;
     total_tasks?: number;
     completion_percent?: number;
+    total_calories?: number;
 }
 
 interface PainHeatmapProps {
@@ -63,7 +64,7 @@ const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) =
     const dateObj = new Date(y, m - 1, d);
     const formatted = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const hasData = data.pain_level != null || data.fatigue_level != null || data.mood;
+    const hasData = data.pain_level != null || data.fatigue_level != null || data.mood || data.total_calories != null;
 
     const StatCard = ({ icon, label, value, fullWidth = false }: { icon: string; label: string; value: string; fullWidth?: boolean }) => (
         <View style={[modalStyles.statCard, fullWidth && { width: '100%' }]}>
@@ -125,6 +126,13 @@ const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) =
                                         icon="medical-outline"
                                         label="Pills"
                                         value={`${data.painkiller_count}`}
+                                    />
+                                )}
+                                {(data.total_calories != null && data.total_calories > 0) && (
+                                    <StatCard
+                                        icon="flame-outline"
+                                        label="Calories"
+                                        value={`${data.total_calories} kcal`}
                                     />
                                 )}
                             </View>

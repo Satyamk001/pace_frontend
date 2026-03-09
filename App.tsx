@@ -12,6 +12,8 @@ import { GlobalErrorBoundary } from './src/components/GlobalErrorBoundary';
 import { View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { ToastProvider } from './src/contexts/ToastContext';
+import { TasksProvider } from './src/contexts/TasksContext';
 
 if (Platform.OS === 'web') {
   const style = document.createElement('style');
@@ -143,7 +145,11 @@ export default function App() {
           <ActionSheetProvider>
             <MoodProvider>
               <SafeAreaProvider>
-                <MainAppContent />
+                <ToastProvider>
+                  <TasksProvider>
+                    <MainAppContent />
+                  </TasksProvider>
+                </ToastProvider>
               </SafeAreaProvider>
             </MoodProvider>
           </ActionSheetProvider>

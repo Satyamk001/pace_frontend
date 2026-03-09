@@ -14,17 +14,15 @@ import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 import { EnergySelector } from '../components/EnergySelector';
-import { NotificationService } from '../services/NotificationService';
+import { useTasks } from '../contexts/TasksContext';
 
 
 export const TaskDetailScreen = ({ route, navigation }: any) => {
     const { todo } = route.params;
-    const { getToken } = useAuth();
-    const api = createApiService(getToken);
+    const { updateTask, deleteTask } = useTasks();
     const insets = useSafeAreaInsets();
 
     const [title, setTitle] = useState(todo.title);
-    const [description, setDescription] = useState(todo.description || '');
     const [feedback, setFeedback] = useState(todo.feedback || '');
     const [energyLevel, setEnergyLevel] = useState<'LOW' | 'MEDIUM' | 'HIGH'>(todo.energy_level || 'MEDIUM');
     const [progress, setProgress] = useState(todo.progress || 0);
@@ -61,7 +59,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
 
     const closeDialog = () => setDialogConfig(prev => ({ ...prev, visible: false }));
 
-    const handleSave = async () => {
+    const handleSave = () => {
         const now = new Date();
         const initialDate = todo.due_date ? new Date(todo.due_date) : new Date(0);
         const isTimeChanged = dueDate.getTime() !== initialDate.getTime();
@@ -76,51 +74,22 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
             return;
         }
 
-        setIsSaving(true);
-        try {
-            const completed = progress === 100 ? true : isCompleted;
-            const updatedTodo = await api.updateTodoDetails(todo.id, {
-                title,
-                description,
-                energyLevel,
-                progress,
-                feedback,
-                isCompleted: completed,
-                dueDate: dueDate.toISOString(),
-                repeatType,
-            });
+        const completed = progress === 100 ? true : isCompleted;
+        updateTask(todo.id, {
+            title,
+            energy_level: energyLevel,
+            progress,
+            feedback,
+            is_completed: completed,
+            due_date: dueDate.toISOString(),
+            repeat_type: repeatType,
+        });
 
-            // FIX Bug 3: cancel stale notification when task is completed
-            if (completed) {
-                await NotificationService.cancelTodo(todo.id);
-            } else if (hasTime) {
-                // FIX Bug 2: include repeat_type from current state (not stale todo prop)
-                const mockTodo = {
-                  ...todo,
-                  title,
-                  is_completed: completed,
-                  due_date: dueDate.toISOString(),
-                  repeat_type: repeatType,
-                };
-                await NotificationService.scheduleTodo(mockTodo);
-            }
-
-            // Return to previous screen but merge params if it's Calendar so it snaps to the newly saved date
-            navigation.navigate('MainTabs', {
-                screen: 'Calendar',
-                params: { updatedTaskDate: dueDate.toISOString() },
-            });
-        } catch (e) {
-            console.error(e);
-            setDialogConfig({
-                visible: true,
-                title: "Error",
-                message: "Failed to update task.",
-                actions: [{ text: "OK", onPress: closeDialog }]
-            });
-        } finally {
-            setIsSaving(false);
-        }
+        // Return to previous screen but merge params if it's Calendar so it snaps to the newly saved date
+        navigation.navigate('MainTabs', {
+            screen: 'Calendar',
+            params: { updatedTaskDate: dueDate.toISOString() },
+        });
     };
 
     const handleDelete = () => {
@@ -135,20 +104,10 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
         });
     };
 
-    const confirmDelete = async () => {
+    const confirmDelete = () => {
         closeDialog();
-        try {
-            await api.deleteTodo(todo.id);
-            navigation.goBack();
-        } catch (e) {
-            console.error('Delete failed:', e);
-            setDialogConfig({
-                visible: true,
-                title: "Error",
-                message: "Failed to delete task.",
-                actions: [{ text: "OK", onPress: closeDialog }]
-            });
-        }
+        deleteTask(todo.id);
+        navigation.goBack();
     };
 
     const handleMarkNotDone = () => {
@@ -174,7 +133,7 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
             </View>
 
             <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
             >
@@ -204,19 +163,6 @@ export const TaskDetailScreen = ({ route, navigation }: any) => {
                             onChangeText={setTitle}
                             placeholder="What needs to be done?"
                             placeholderTextColor={colors.textLight}
-                        />
-                    </View>
-
-                    {/* Description */}
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Description</Text>
-                        <TextInput 
-                            style={[styles.input, styles.textArea]}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder="Add details..."
-                            placeholderTextColor={colors.textLight}
-                            multiline
                         />
                     </View>
 

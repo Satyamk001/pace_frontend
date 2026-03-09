@@ -15,8 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import {colors, typography, spacing, borderRadius} from '../theme';
-import { createApiService } from '../services/api';
-import { NotificationService } from '../services/NotificationService';
+import { useTasks } from '../contexts/TasksContext';
 import { DateTimeModal } from '../components/DateTimeModal';
 import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
@@ -25,7 +24,7 @@ import { EnergySelector } from '../components/EnergySelector';
 
 export const AddTaskScreen = ({ navigation, route }: any) => {
     const { getToken } = useAuth();
-    const api = createApiService(getToken);
+    const { addTask } = useTasks();
     const insets = useSafeAreaInsets();
 
     const [title, setTitle] = useState('');
@@ -52,26 +51,10 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
         setDueDate(d);
     };
 
-    const handleCreate = async () => {
+    const handleCreate = () => {
         if (!title.trim()) return;
-        setLoading(true);
-        try {
-            const newTodo = await api.createTodo(title, energy, dueDate.toISOString(), feedback.trim() || undefined, repeatType);
-
-            await NotificationService.scheduleTodo({
-                ...newTodo,
-                title,
-                due_date: dueDate.toISOString(),
-                is_completed: false,
-                repeat_type: repeatType,
-            });
-            navigation.goBack();
-        } catch (error) {
-            console.error(error);
-            setDialogVisible(true);
-        } finally {
-            setLoading(false);
-        }
+        addTask(title, energy, dueDate, feedback.trim() || undefined, repeatType);
+        navigation.goBack();
     };
 
     return (
@@ -84,7 +67,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
             />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.flex}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 60) : 0}
             >

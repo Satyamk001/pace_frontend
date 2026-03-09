@@ -28,6 +28,7 @@ import { getLocalDateKey } from '../utils/dateUtils';
 import { ProgressChart } from 'react-native-chart-kit';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { NotificationService } from '../services/NotificationService';
+import { useTasks } from '../contexts/TasksContext';
 
 import { CalendarScheduleCard } from '../components/CalendarScheduleCard';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -42,10 +43,11 @@ export const CalendarScreen = ({ route, navigation }: any) => {
     const { getToken } = useAuth();
 
     const api = createApiService(getToken);
+    const { getTasks, fetchTasks, updateTask, deleteTask } = useTasks();
 
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const dayTasks = getTasks(getLocalDateKey(selectedDate));
     const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [dayTasks, setDayTasks] = useState<any[]>([]);
     const [dayLog, setDayLog] = useState<any>(null);
     const [healthMetrics, setHealthMetrics] = useState<any>(null);
     const [calendarStats, setCalendarStats] = useState<any>({});
@@ -86,17 +88,14 @@ export const CalendarScreen = ({ route, navigation }: any) => {
     };
 
     const fetchDayDetails = async (date: Date) => {
-        if (dayTasks.length === 0) setLoading(true);
+        setLoading(true);
         try {
             const dateStr = getLocalDateKey(date);
-            const [tasks, log, metrics] = await Promise.all([
-                api.getTodos(dateStr),
+            const [log, metrics] = await Promise.all([
                 api.getDailyLog(dateStr).catch(() => null),
                 api.getHealthMetrics(dateStr).catch(() => null),
+                fetchTasks(date), // Let context fetch and hold tasks
             ]);
-            setDayTasks(tasks.sort((a: any, b: any) =>
-                a.due_date && b.due_date
-                    ? new Date(a.due_date).getTime() - new Date(b.due_date).getTime() : 0));
             setDayLog(log);
             setHealthMetrics(metrics);
         } catch (e) { console.error(e); }
@@ -108,31 +107,21 @@ export const CalendarScreen = ({ route, navigation }: any) => {
         const isCompleted = !task.is_completed;
         const progress = isCompleted ? 100 : 0;
         
-        setDayTasks(prev => prev.map(t =>
-            t.id === task.id
-                ? { ...t, progress, is_completed: isCompleted } : t));
-                
-        try {
-            const updated = await api.updateTodoDetails(task.id, { progress, isCompleted });
-            if (updated) {
-                if (isCompleted) {
-                    // FIX Bug 6: cancel notification when task is completed
-                    await NotificationService.cancelTodo(task.id);
-                } else if (updated.due_date) {
-                    // Reschedule when marking back as incomplete
-                    await NotificationService.scheduleTodo(updated);
-                }
-            }
-            fetchCalendarStats();
-        } catch (e) { console.error(e); }
+        await updateTask(task.id, { is_completed: isCompleted, progress });
+        
+        // Notifications cleanup
+        if (isCompleted) {
+            await NotificationService.cancelTodo(task.id);
+        } else if (task.due_date) {
+            await NotificationService.scheduleTodo({...task, is_completed: false, progress: 0});
+        }
+        
+        fetchCalendarStats(); // Update stats optionally
     };
 
     const handleDeleteTask = async (id: string) => {
-        try {
-            setDayTasks(prev => prev.filter(t => t.id !== id));
-            await api.deleteTodo(id);
-            fetchCalendarStats();
-        } catch (e) { console.error(e); }
+        await deleteTask(id);
+        fetchCalendarStats();
     };
 
     const loadAllData = async () => {
@@ -406,11 +395,11 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                                 <CalendarScheduleCard
                                     key={task.id}
                                     title={task.title}
-                                    dueDate={task.due_date}
+                                    dueDate={task.due_date ?? ''}
                                     energyLevel={task.energy_level}
                                     isCompleted={task.is_completed}
                                     progress={task.progress}
-                                    feedback={task.feedback}
+                                    feedback={task.feedback ?? undefined}
                                     onPress={() => navigation.navigate('TaskDetail', { todo: task })}
                                     onToggle={() => handleToggleTask(task)}
                                 />

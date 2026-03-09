@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import {colors, typography, spacing, borderRadius} from '../theme';
+import { colors, typography, spacing, borderRadius } from '../theme';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -56,6 +56,9 @@ export const DateTimeModal = ({ visible, onClose, onSave, initialDate, initialRe
     const [showModal, setShowModal] = useState(visible);
     const translateY = useRef(new Animated.Value(Dimensions.get('window').height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    // Determine if the outer ScrollView should be disabled (time drum is active)
+    const isTimeDrumActive = activeTab === 'TIME' && isPickerVisible;
 
     useEffect(() => {
         if (visible) {
@@ -154,7 +157,15 @@ export const DateTimeModal = ({ visible, onClose, onSave, initialDate, initialRe
 
     const generateDrumData = (max: number) => Array.from({ length: max }, (_, i) => i);
 
-    const TimeDrumColumn = ({ data, selectedVal, onSelect }: { data: number[], selectedVal: number, onSelect: (val: number) => void }) => (
+    const TimeDrumColumn = ({
+        data,
+        selectedVal,
+        onSelect,
+    }: {
+        data: number[];
+        selectedVal: number;
+        onSelect: (val: number) => void;
+    }) => (
         <View style={{ height: DRUM_HEIGHT, width: 70 }}>
             <FlatList
                 data={data}
@@ -163,12 +174,25 @@ export const DateTimeModal = ({ visible, onClose, onSave, initialDate, initialRe
                 snapToInterval={ITEM_HEIGHT}
                 snapToAlignment="center"
                 decelerationRate="fast"
+                // FIX 1: Allow this FlatList to scroll independently inside the parent ScrollView
+                nestedScrollEnabled={true}
                 initialScrollIndex={selectedVal}
                 getItemLayout={(_, index) => ({
-                    length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index,
+                    length: ITEM_HEIGHT,
+                    offset: ITEM_HEIGHT * index,
+                    index,
                 })}
+                // FIX 2: Handle failed initialScrollIndex gracefully (avoids crashes)
+                onScrollToIndexFailed={() => { }}
                 contentContainerStyle={{ paddingVertical: (DRUM_HEIGHT - ITEM_HEIGHT) / 2 }}
                 onMomentumScrollEnd={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+                    if (data[index] !== undefined) {
+                        onSelect(data[index]);
+                    }
+                }}
+                // FIX 3: Also capture value on drag-end (covers slow drags that don't trigger momentum)
+                onScrollEndDrag={(e) => {
                     const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
                     if (data[index] !== undefined) {
                         onSelect(data[index]);
@@ -206,7 +230,14 @@ export const DateTimeModal = ({ visible, onClose, onSave, initialDate, initialRe
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    {/* FIX 4: Disable outer ScrollView scrolling while the time drum is active
+                        so it doesn't steal the vertical gesture from the FlatList columns */}
+                    <ScrollView
+                        bounces={false}
+                        showsVerticalScrollIndicator={false}
+                        scrollEnabled={!isTimeDrumActive}
+                        contentContainerStyle={styles.scrollContent}
+                    >
 
                         {/* Schedule Card */}
                         <View style={styles.card}>
@@ -363,9 +394,9 @@ const DrumStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
     containerWrapper: { flex: 1, justifyContent: 'flex-end' },
-    overlay: { backgroundColor: 'rgba(15, 23, 42, 0.4)' }, // Standard dark overlay
+    overlay: { backgroundColor: 'rgba(15, 23, 42, 0.4)' },
     modalContainer: {
-        backgroundColor: colors.background, // Changed to background to let white cards pop
+        backgroundColor: colors.background,
         borderTopLeftRadius: borderRadius.xl,
         borderTopRightRadius: borderRadius.xl,
         paddingTop: spacing.m,
@@ -439,7 +470,7 @@ const styles = StyleSheet.create({
     footer: {
         paddingHorizontal: spacing.l,
         paddingTop: spacing.m,
-        paddingBottom: spacing.xxl, // Handle safe area properly
+        paddingBottom: spacing.xxl,
         backgroundColor: colors.background,
         borderTopWidth: 1,
         borderTopColor: colors.border,

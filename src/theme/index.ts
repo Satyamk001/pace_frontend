@@ -16,24 +16,30 @@ export const moderateScale = (size: number, factor = 0.5) =>
 // STRICT COLOR PALETTE (ONLY THESE COLORS + SHADES)
 // ============================================================
 const palette = {
-  baseBackground: '#F6F8F0',
+  // Warm ivory — richer than plain white, avoids clinical feel
+  baseBackground: '#FAF8F5',
 
-  // NEW Primary Accent — Dusty Blue
-  lavender: '#5F7DB8',
-  olive: '#9BA146',
+  // PRIMARY — deeper, more sophisticated terracotta
+  coral: '#C96B45',   // 500 — base (richer than #D97757)
+  terracotta: '#E2906A',   // warm mid-tone
+
   white: '#FFFFFF',
-  black: '#000000',
+  // Deep warm black — never pure #000, feels expensive on screen
+  black: '#1C1917',
 
-  // Derived shades (lighter/darker only)
-  lavenderDark: '#4A6599',
-  lavenderLight: '#D6E0F5',
+  // Derived shades
+  coralDark: '#8B3E22',   // rich espresso-terracotta
+  coralLight: '#FDEEE8',   // barely-there blush tint
+  coralLight2: '#EBAA8C',   // warm peach-gold mid
 
-  oliveDark: '#83883D',
-  oliveLight: '#C4C878',
+  terracottaDark: '#B0501E',  // saturated burnt sienna
+  terracottaLight: '#FBF2ED',  // near-white warm blush
 
-  backgroundSoft: '#FAFBF6',
-  borderSoft: '#E4E8DA',
+  // Surfaces & borders — warm neutrals, no pink cast
+  backgroundSoft: '#F5F0EA',   // warm cream
+  borderSoft: '#EAE2D9',   // warm taupe (not pink-tinted)
 };
+
 // ============================================================
 // EXPORTED COLORS — SEMANTIC SYSTEM
 // ============================================================
@@ -47,55 +53,56 @@ export const colors = {
   divider: palette.borderSoft,
   inputBackground: palette.white,
 
-  // Typography
+  // Typography — warm grays, never pure black/gray
   text: palette.black,
   textPrimary: palette.black,
-  textSecondary: '#4A4A4A', // darker grey derived from black
-  textLight: '#777777',
+  textSecondary: '#57534E',   // warm medium charcoal
+  textLight: '#A8A29E',   // warm stone gray
 
   // Primary Branding
-  primary: palette.lavender,
-  accent: palette.lavender,
-  accentDark: palette.lavenderDark,
-  accentSoft: palette.lavenderLight,
+  primary: palette.coral,
+  accent: palette.coral,
+  accentDark: palette.coralDark,
+  accentSoft: palette.coralLight2,
+  accentSoft2: palette.coralLight,
 
-  // Semantic States (derived only)
-  success: palette.olive,
-  error: palette.oliveDark,
-  warning: palette.oliveLight,
-  info: palette.lavender,
+  // Semantic States — success is distinct from primary palette
+  success: palette.coralDark,              // muted sage green — clearly different from terracotta
+  error: palette.terracottaDark,
+  warning: palette.terracottaLight,
+  info: palette.coral,
 
   // Buttons
   buttonPrimaryText: palette.white,
   buttonDisabledBg: palette.borderSoft,
-  buttonDisabledText: '#888888',
+  buttonDisabledText: '#B5ADA6',   // warm disabled gray
 
-  // Mood Mapping (strictly derived)
- // Mood Mapping — Strong Clinical Differentiation
-mood: {
-  none: palette.oliveDark,          // No pain — visual relief
-  mild: palette.oliveLight,  // Subtle discomfort
-  moderate: palette.lavenderLight,   // Noticeable but stable
-  elevated: palette.lavender, // Monitoring required
-  severe: palette.lavenderDark,    // High concern
-  critical: palette.lavenderDark,      // Immediate attention
-},
+  // Mood Mapping — Clinical Differentiation
+  mood: {
+    none: palette.coralDark,            // calm sage — visually distinct
+    mild: palette.coralLight2,
+    moderate: palette.coral,
+    elevated: palette.terracotta,
+    severe: palette.terracottaDark,
+    critical: palette.coralDark,
+  },
+
   // Charts
   chart: {
-    primary: palette.lavender,
-    secondary: palette.olive,
+    primary: palette.coral,
+    secondary: palette.terracotta,
     grid: palette.borderSoft,
     text: palette.black,
   },
 
   // Premium
-  premium: palette.oliveDark,
+  premium: palette.coralDark,
 
   // Layers
   l0: palette.baseBackground,
   l1: palette.white,
   l2: palette.backgroundSoft,
-  l3: palette.lavenderLight,
+  l3: palette.coralLight,
 
   transparent: 'transparent',
 
@@ -103,7 +110,7 @@ mood: {
   gradients: {
     background: [palette.baseBackground, palette.backgroundSoft],
     surface: [palette.white, palette.baseBackground],
-    premium: [palette.lavenderLight, palette.lavender],
+    premium: [palette.coralLight, palette.coral],
   },
 };
 
@@ -140,28 +147,28 @@ export const borderRadius = {
 };
 
 // ============================================================
-// SHADOWS (BLACK ONLY)
+// SHADOWS — warm-tinted, real depth (was all zeros)
 // ============================================================
 
 export const shadows = {
   soft: {
-    shadowColor: palette.black,
+    shadowColor: '#8B6354',    // warm shadow, never cold gray
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 2,
   },
   medium: {
-    shadowColor: palette.black,
+    shadowColor: '#8B6354',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.10,
     shadowRadius: 16,
     elevation: 4,
   },
   glow: {
-    shadowColor: palette.lavender,
+    shadowColor: palette.coral,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.28,
     shadowRadius: 12,
     elevation: 5,
   },
@@ -198,7 +205,7 @@ export const typography = {
   subheader: {
     fontSize: moderateScale(18),
     fontWeight: '600' as const,
-    color: palette.lavenderDark,
+    color: palette.coralDark,
   },
   body: {
     fontSize: moderateScale(16),
@@ -219,7 +226,7 @@ export const typography = {
   caption: {
     fontSize: moderateScale(13),
     fontWeight: '500' as const,
-    color: palette.lavenderDark,
+    color: palette.coralDark,
   },
 };
 

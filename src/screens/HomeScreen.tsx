@@ -12,7 +12,7 @@ import { TaskItem } from '../components/TaskItem';
 import { TaskListSkeleton } from '../components/ui/SkeletonLoader';
 import { useMoodTheme } from '../context/MoodContext';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
-import { NotificationService } from '../services/NotificationService';
+import { useTasks } from '../contexts/TasksContext';
 import { NeonBackground } from '../components/ui/NeonBackground';
 import { EmptyState } from '../components/ui/EmptyState';
 
@@ -20,8 +20,10 @@ import { EmptyState } from '../components/ui/EmptyState';
 export const HomeScreen = ({ navigation }: any) => {
   const { getToken, signOut } = useAuth();
   const api = createApiService(getToken);
+  const { getTasks, fetchTasks, updateTask, deleteTask } = useTasks();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todos = getTasks(todayStr);
 
-  const [todos, setTodos] = useState<any[]>([]);
   const [dailyLog, setDailyLog] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,12 +35,12 @@ export const HomeScreen = ({ navigation }: any) => {
 
   const fetchData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const [todosData, logData] = await Promise.all([
-        api.getTodos(today),
-        api.getDailyLog(today)
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const [logData] = await Promise.all([
+        api.getDailyLog(todayStr),
+        fetchTasks(today)
       ]);
-      setTodos(todosData);
       setDailyLog(logData);
       // Restore mood from DB
       if (logData?.mood) {
@@ -57,35 +59,18 @@ export const HomeScreen = ({ navigation }: any) => {
     setRefreshing(false);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
+  useEffect(() => {
+    fetchData();
+  }, []);
 
 
 
   const handleDeleteTodo = async (id: string) => {
-      try {
-          await api.deleteTodo(id);
-          fetchData();
-      } catch (e) {
-          console.error('Delete failed:', e);
-      }
+      await deleteTask(id);
   };
 
   const handleRescheduleTodo = async (id: string, newDate: string) => {
-      try {
-          const updatedTodo = await api.updateTodoDetails(id, { dueDate: newDate });
-          
-          if (updatedTodo && updatedTodo.due_date && !updatedTodo.is_completed) {
-            await NotificationService.scheduleTodo(updatedTodo);
-          }
-          
-          fetchData();
-      } catch (e) {
-          console.error('Reschedule failed:', e);
-      }
+      await updateTask(id, { due_date: newDate });
   };
 
   // Sync with Global Context
@@ -306,27 +291,13 @@ export const HomeScreen = ({ navigation }: any) => {
                     isCompleted={todo.is_completed}
                     energyLevel={todo.energy_level}
                     progress={todo.progress}
-                    dueDate={todo.due_date}
-                    feedback={todo.feedback}
+                    dueDate={todo.due_date ?? undefined}
+                    feedback={todo.feedback ?? undefined}
                     onPress={() => navigation.navigate('TaskDetail', { todo })}
                     onToggle={async () => {
                         const newCompletedState = !todo.is_completed;
                         const newProgress = newCompletedState ? 100 : 0;
-                        setTodos(prev => prev.map(t => 
-                            t.id === todo.id ? {...t, progress: newProgress, is_completed: newCompletedState} : t
-                        ));
-                        try {
-                            const updated = await api.updateTodoDetails(todo.id, { progress: newProgress, isCompleted: newCompletedState });
-                            // FIX Bug 7: sync notifications with task completion state
-                            if (newCompletedState) {
-                                await NotificationService.cancelTodo(todo.id);
-                            } else if (updated?.due_date) {
-                                await NotificationService.scheduleTodo(updated);
-                            }
-                            fetchData();
-                        } catch (e) {
-                            console.error(e);
-                        }
+                        await updateTask(todo.id, { progress: newProgress, is_completed: newCompletedState });
                     }}
                     onDelete={() => handleDeleteTodo(todo.id)}
                 />

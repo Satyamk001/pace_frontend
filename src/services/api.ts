@@ -91,7 +91,7 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       });
     },
 
-    // ─── FOOD ────────────────────────────────────────────────────
+    // ─── FOOD (legacy) ────────────────────────────────────────────
     logFood: async (data: { date: string, name: string, quantity?: string, calories: number, time?: string, notes?: string }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food`, {
         method: 'POST',
@@ -101,6 +101,69 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
 
     getDailyFoodLog: async (date: string) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food/daily?date=${date}`);
+    },
+
+    // ─── FOOD TEMPLATES ─────────────────────────────────────────
+    getFoodTemplates: async () => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates`);
+    },
+
+    addFoodTemplate: async (data: { name: string, defaultQuantity?: string, unit?: string, calories?: number, isAiEstimated?: boolean }) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    updateFoodTemplate: async (id: string, data: { name?: string, defaultQuantity?: string, unit?: string, calories?: number }) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+
+    deleteFoodTemplate: async (id: string) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/${id}`, { method: 'DELETE' });
+    },
+
+    // ─── DAILY FOOD ENTRIES ─────────────────────────────────────
+    getDailyFoodEntries: async (date: string) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily?date=${date}`);
+    },
+
+    toggleFoodEaten: async (id: string) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily/${id}/toggle`, { method: 'PUT' });
+    },
+
+    updateDailyFoodEntry: async (id: string, data: { quantity?: string, calories?: number, unit?: string }) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+
+    addAdhocFoodEntry: async (data: { date: string, name: string, quantity?: string, unit?: string, calories?: number, saveToTemplate?: boolean }) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    deleteDailyFoodEntry: async (id: string) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily/${id}`, { method: 'DELETE' });
+    },
+
+    // ─── AI CALORIE ESTIMATION ──────────────────────────────────
+    estimateCalories: async (name: string, quantity?: string, unit?: string) => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/estimate-calories`, {
+        method: 'POST',
+        body: JSON.stringify({ name, quantity, unit }),
+      });
+    },
+
+    // ─── HEALTH INSIGHTS ────────────────────────────────────────
+    getHealthInsights: async () => {
+      return await apiFetch(`${BACKEND_URL}/health-metrics/insights`);
     },
 
     // ─── MEDICINE ────────────────────────────────────────────────
