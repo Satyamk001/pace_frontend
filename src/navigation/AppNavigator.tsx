@@ -35,7 +35,7 @@ export type RootStackParamList = {
     MainTabs: undefined;
     Auth: undefined;
     AddTask: undefined;
-    HealthCheckIn: undefined;
+    HealthCheckIn: { date?: string } | undefined;
     TaskDetail: { todo: any };
     Premium: undefined;
     Food: undefined;

@@ -9,6 +9,9 @@ interface FoodTemplateItemProps {
   quantity?: string;
   unit?: string;
   calories: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
   isEaten: boolean;
   isAdhoc?: boolean;
   onToggle: (id: string) => void;
@@ -16,7 +19,7 @@ interface FoodTemplateItemProps {
 }
 
 export const FoodTemplateItem: React.FC<FoodTemplateItemProps> = ({
-  id, name, quantity, unit, calories, isEaten, isAdhoc, onToggle, onPress,
+  id, name, quantity, unit, calories, protein = 0, fat = 0, carbs = 0, isEaten, isAdhoc, onToggle, onPress,
 }) => {
   const checkScale = useRef(new Animated.Value(1)).current;
 
@@ -71,6 +74,13 @@ export const FoodTemplateItem: React.FC<FoodTemplateItemProps> = ({
               <Text style={styles.adhocText}>one-off</Text>
             </View>
           )}
+          
+          {/* Macro Badges */}
+          <View style={styles.macroPills}>
+            <Text style={styles.macroText}>P:{Number(protein).toFixed(1)}g</Text>
+            <Text style={styles.macroText}>F:{Number(fat).toFixed(1)}g</Text>
+            <Text style={styles.macroText}>C:{Number(carbs).toFixed(1)}g</Text>
+          </View>
         </View>
       </View>
 
@@ -140,6 +150,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   detailPill: {
@@ -163,6 +174,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.accentDark,
     letterSpacing: 0.3,
+  },
+  macroPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  macroText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
 
   // ── Calorie badge ──

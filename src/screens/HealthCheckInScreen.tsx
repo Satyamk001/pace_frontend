@@ -11,6 +11,7 @@ import {
   Platform
 } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
+import { useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -24,7 +25,12 @@ import { getLocalDateKey } from '../utils/dateUtils';
 
 export const HealthCheckInScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
+  const route = useRoute<any>();
   const api = createApiService(getToken);
+
+  // Use route param date if provided, otherwise default to today
+  const targetDate = route.params?.date || getLocalDateKey(new Date());
+  const isToday = targetDate === getLocalDateKey(new Date());
 
   const [pain, setPain] = useState(0);
   const [fatigue, setFatigue] = useState(0);
@@ -36,15 +42,14 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    fetchTodayData();
+    fetchDateData();
   }, []);
 
-  const fetchTodayData = async () => {
+  const fetchDateData = async () => {
     try {
-      const today = getLocalDateKey(new Date());
       const [log, metrics] = await Promise.all([
-        api.getDailyLog(today).catch(() => null),
-        api.getHealthMetrics(today).catch(() => null)
+        api.getDailyLog(targetDate).catch(() => null),
+        api.getHealthMetrics(targetDate).catch(() => null)
       ]);
 
       if (log && log.mood) setMood(log.mood);
@@ -56,7 +61,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
         setIsUpdate(true);
       }
     } catch (e) {
-      console.log("No existing data for today or error fetching", e);
+      console.log("No existing data or error fetching", e);
     } finally {
       setFetching(false);
     }
@@ -65,11 +70,9 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const today = getLocalDateKey(new Date());
-
-      await api.logDay(today, undefined, mood);
+      await api.logDay(targetDate, undefined, mood);
       await api.logHealthMetrics({
-        date: today,
+        date: targetDate,
         painLevel: Math.round(pain),
         fatigueLevel: Math.round(fatigue),
         mood,
@@ -112,12 +115,19 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
           {/* Header Section */}
           <View style={styles.header}>
             <BackButton />
-            <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
+            <View style={{alignItems: 'center'}}>
+              <Text style={styles.headerTitle}>{isUpdate ? 'Update Check-in' : 'Check-in'}</Text>
+              {!isToday && (
+                <Text style={styles.headerDate}>
+                  {new Date(targetDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              )}
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>How do you feel?</Text>
+            <Text style={styles.title}>{isToday ? 'How do you feel?' : 'How did you feel?'}</Text>
             <Text style={styles.subtitle}>Be honest. No judgment here.</Text>
           </View>
 
@@ -229,6 +239,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...typography.subheader,
     color: colors.text,
+  },
+  headerDate: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: 2,
   },
   headerSpacer: {
     width: 40,

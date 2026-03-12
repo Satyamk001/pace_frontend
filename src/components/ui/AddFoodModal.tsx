@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, ActivityIndicator, Switch, ScrollView,
-  Animated, Dimensions, TouchableWithoutFeedback,
+  Animated, Dimensions, TouchableWithoutFeedback, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
@@ -18,9 +18,18 @@ interface AddFoodModalProps {
     quantity: string;
     unit: string;
     calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
     saveToTemplate: boolean;
   }) => void;
-  onEstimateCalories: (name: string, quantity: string, unit: string) => Promise<{ calories: number; confidence: string }>;
+  onEstimateCalories: (name: string, quantity: string, unit: string) => Promise<{ 
+    calories: number; 
+    protein: number;
+    fat: number;
+    carbs: number;
+    confidence: string;
+  }>;
 }
 
 export const AddFoodModal: React.FC<AddFoodModalProps> = ({
@@ -30,12 +39,18 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('piece');
   const [calories, setCalories] = useState('');
+  const [protein, setProtein] = useState('');
+  const [fat, setFat] = useState('');
+  const [carbs, setCarbs] = useState('');
   const [saveToTemplate, setSaveToTemplate] = useState(false);
   const [estimating, setEstimating] = useState(false);
   const [confidence, setConfidence] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
   const [qtyFocused, setQtyFocused] = useState(false);
   const [calFocused, setCalFocused] = useState(false);
+  const [proteinFocused, setProteinFocused] = useState(false);
+  const [fatFocused, setFatFocused] = useState(false);
+  const [carbsFocused, setCarbsFocused] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -71,7 +86,8 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
 
   const reset = () => {
     setName(''); setQuantity('1'); setUnit('piece');
-    setCalories(''); setSaveToTemplate(false);
+    setCalories(''); setProtein(''); setFat(''); setCarbs('');
+    setSaveToTemplate(false);
     setEstimating(false); setConfidence('');
   };
 
@@ -81,9 +97,13 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
     try {
       const result = await onEstimateCalories(name, quantity, unit);
       setCalories(String(result.calories));
+      setProtein(String(result.protein));
+      setFat(String(result.fat));
+      setCarbs(String(result.carbs));
       setConfidence(result.confidence);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to estimate:', e);
+      Alert.alert('AI Unavailable', e.message || 'An error occurred while estimating with AI. Please try again later.');
     } finally {
       setEstimating(false);
     }
@@ -91,7 +111,16 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), quantity, unit, calories: parseInt(calories) || 0, saveToTemplate });
+    onSave({ 
+      name: name.trim(), 
+      quantity, 
+      unit, 
+      calories: parseInt(calories) || 0, 
+      protein: parseFloat(protein) || 0,
+      fat: parseFloat(fat) || 0,
+      carbs: parseFloat(carbs) || 0,
+      saveToTemplate 
+    });
     reset();
   };
 
@@ -253,6 +282,60 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
                     <Text style={styles.confidenceText}>AI confidence: <Text style={{ fontWeight: '600', color: confidenceBadgeColor() }}>{confidence}</Text></Text>
                   </View>
                 ) : null}
+              </View>
+
+              {/* ── Macros ── */}
+              <View style={styles.macroGrid}>
+                {/* Protein */}
+                <View style={styles.macroGroup}>
+                  <Text style={styles.label}>Protein (g)</Text>
+                  <View style={[styles.inputWrap, proteinFocused && styles.inputWrapFocused, styles.macroInputWrap]}>
+                    <TextInput
+                      style={[styles.input, { fontWeight: '700', textAlign: 'center' }]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textLight}
+                      keyboardType="numeric"
+                      value={protein}
+                      onChangeText={setProtein}
+                      onFocus={() => setProteinFocused(true)}
+                      onBlur={() => setProteinFocused(false)}
+                    />
+                  </View>
+                </View>
+
+                {/* Fat */}
+                <View style={styles.macroGroup}>
+                  <Text style={styles.label}>Fat (g)</Text>
+                  <View style={[styles.inputWrap, fatFocused && styles.inputWrapFocused, styles.macroInputWrap]}>
+                    <TextInput
+                      style={[styles.input, { fontWeight: '700', textAlign: 'center' }]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textLight}
+                      keyboardType="numeric"
+                      value={fat}
+                      onChangeText={setFat}
+                      onFocus={() => setFatFocused(true)}
+                      onBlur={() => setFatFocused(false)}
+                    />
+                  </View>
+                </View>
+
+                {/* Carbs */}
+                <View style={styles.macroGroup}>
+                  <Text style={styles.label}>Carbs (g)</Text>
+                  <View style={[styles.inputWrap, carbsFocused && styles.inputWrapFocused, styles.macroInputWrap]}>
+                    <TextInput
+                      style={[styles.input, { fontWeight: '700', textAlign: 'center' }]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textLight}
+                      keyboardType="numeric"
+                      value={carbs}
+                      onChangeText={setCarbs}
+                      onFocus={() => setCarbsFocused(true)}
+                      onBlur={() => setCarbsFocused(false)}
+                    />
+                  </View>
+                </View>
               </View>
 
               {/* ── Save to My Foods toggle ── */}
@@ -507,6 +590,20 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textLight,
     fontStyle: 'italic',
+  },
+
+  // ── Macros ──
+  macroGrid: {
+    flexDirection: 'row',
+    gap: spacing.m,
+  },
+  macroGroup: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  macroInputWrap: {
+    paddingHorizontal: spacing.s,
+    minHeight: 44,
   },
 
   // ── Save to My Foods ──

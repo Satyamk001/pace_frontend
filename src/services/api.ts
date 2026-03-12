@@ -13,8 +13,16 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
     const headers = await getHeaders();
     const res = await fetch(url, { ...options, headers });
     if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status}: ${errText}`);
+      let errText = await res.text().catch(() => '');
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.error) {
+          errText = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error);
+        }
+      } catch (e) {
+        // ignore JSON parse error
+      }
+      throw new Error(errText || `API error ${res.status}`);
     }
     // Handle 204 No Content
     if (res.status === 204) return null;
@@ -108,14 +116,14 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates`);
     },
 
-    addFoodTemplate: async (data: { name: string, defaultQuantity?: string, unit?: string, calories?: number, isAiEstimated?: boolean }) => {
+    addFoodTemplate: async (data: { name: string, defaultQuantity?: string, unit?: string, calories?: number, protein?: number, fat?: number, carbs?: number, isAiEstimated?: boolean }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
     },
 
-    updateFoodTemplate: async (id: string, data: { name?: string, defaultQuantity?: string, unit?: string, calories?: number }) => {
+    updateFoodTemplate: async (id: string, data: { name?: string, defaultQuantity?: string, unit?: string, calories?: number, protein?: number, fat?: number, carbs?: number }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -135,14 +143,14 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily/${id}/toggle`, { method: 'PUT' });
     },
 
-    updateDailyFoodEntry: async (id: string, data: { quantity?: string, calories?: number, unit?: string }) => {
+    updateDailyFoodEntry: async (id: string, data: { quantity?: string, calories?: number, protein?: number, fat?: number, carbs?: number, unit?: string }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       });
     },
 
-    addAdhocFoodEntry: async (data: { date: string, name: string, quantity?: string, unit?: string, calories?: number, saveToTemplate?: boolean }) => {
+    addAdhocFoodEntry: async (data: { date: string, name: string, quantity?: string, unit?: string, calories?: number, protein?: number, fat?: number, carbs?: number, saveToTemplate?: boolean }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics/food-templates/daily`, {
         method: 'POST',
         body: JSON.stringify(data),

@@ -200,6 +200,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                         year={heatmapYear}
                         calendarData={calendarStats}
                         onYearChange={setHeatmapYear}
+                        onEditCheckIn={(date) => navigation.navigate('HealthCheckIn', { date })}
                     />
 
                     {/* Premium upsell */}

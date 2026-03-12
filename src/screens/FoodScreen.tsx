@@ -24,6 +24,9 @@ interface DailyEntry {
   quantity: string;
   unit: string;
   calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
   is_eaten: boolean;
   is_adhoc: boolean;
 }
@@ -127,7 +130,8 @@ export const FoodScreen = () => {
 
   const handleAddFood = async (data: {
     name: string; quantity: string; unit: string;
-    calories: number; saveToTemplate: boolean;
+    calories: number; protein: number; fat: number; carbs: number;
+    saveToTemplate: boolean;
   }) => {
     setShowAddModal(false);
     try {
@@ -158,6 +162,9 @@ export const FoodScreen = () => {
           defaultQuantity: selectedEntry.quantity,
           unit: selectedEntry.unit,
           calories: selectedEntry.calories,
+          protein: selectedEntry.protein,
+          fat: selectedEntry.fat,
+          carbs: selectedEntry.carbs,
         });
         setEntries(prev => prev.map(e => e.id === selectedEntry.id ? { ...e, template_id: template.id } : e));
       }
@@ -224,9 +231,11 @@ export const FoodScreen = () => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Summary card ── */}
           <FoodSummaryCard
             totalCalories={totalCalories}
+            totalProtein={eatenEntries.reduce((sum, e) => sum + (Number(e.protein) || 0), 0)}
+            totalFat={eatenEntries.reduce((sum, e) => sum + (Number(e.fat) || 0), 0)}
+            totalCarbs={eatenEntries.reduce((sum, e) => sum + (Number(e.carbs) || 0), 0)}
             eatenCount={eatenEntries.length}
             totalCount={entries.length}
           />
@@ -272,6 +281,9 @@ export const FoodScreen = () => {
                     quantity={item.quantity}
                     unit={item.unit}
                     calories={item.calories}
+                    protein={item.protein}
+                    fat={item.fat}
+                    carbs={item.carbs}
                     isEaten={item.is_eaten}
                     onToggle={handleToggle}
                     onPress={handleItemPress}
@@ -299,6 +311,9 @@ export const FoodScreen = () => {
                     quantity={item.quantity}
                     unit={item.unit}
                     calories={item.calories}
+                    protein={item.protein}
+                    fat={item.fat}
+                    carbs={item.carbs}
                     isEaten={item.is_eaten}
                     isAdhoc
                     onToggle={handleToggle}

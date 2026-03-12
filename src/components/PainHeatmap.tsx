@@ -15,12 +15,16 @@ interface DayData {
     total_tasks?: number;
     completion_percent?: number;
     total_calories?: number;
+    total_protein?: number;
+    total_fat?: number;
+    total_carbs?: number;
 }
 
 interface PainHeatmapProps {
     year: number;
     calendarData: Record<string, DayData>;
     onYearChange?: (year: number) => void;
+    onEditCheckIn?: (date: string) => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -55,16 +59,18 @@ interface DayDetailModalProps {
     date: string | null;
     data: DayData | null;
     onClose: () => void;
+    onEditCheckIn?: (date: string) => void;
 }
 
-const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) => {
-    if (!date || !data) return null;
+const DayDetailModal = ({ visible, date, data, onClose, onEditCheckIn }: DayDetailModalProps) => {
+    if (!date) return null;
+    const displayData = data || {};
 
     const [y, m, d] = date.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d);
     const formatted = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const hasData = data.pain_level != null || data.fatigue_level != null || data.mood || data.total_calories != null;
+    const hasData = displayData.pain_level != null || displayData.fatigue_level != null || displayData.mood || displayData.total_calories != null;
 
     const StatCard = ({ icon, label, value, fullWidth = false }: { icon: string; label: string; value: string; fullWidth?: boolean }) => (
         <View style={[modalStyles.statCard, fullWidth && { width: '100%' }]}>
@@ -86,9 +92,9 @@ const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) =
                     {/* Date header */}
                     <Text style={modalStyles.dateText}>{formatted}</Text>
 
-                    {data.day_type && (
+                    {displayData.day_type && (
                         <View style={modalStyles.dayTypePill}>
-                            <Text style={modalStyles.dayTypeText}>{DAY_TYPE_LABEL[data.day_type] ?? data.day_type}</Text>
+                            <Text style={modalStyles.dayTypeText}>{DAY_TYPE_LABEL[displayData.day_type] ?? displayData.day_type}</Text>
                         </View>
                     )}
 
@@ -100,68 +106,90 @@ const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) =
                     ) : (
                         <View style={modalStyles.statsContainer}>
                             <View style={modalStyles.statsGrid}>
-                                {data.mood != null && (
+                                {displayData.mood != null && (
                                     <StatCard
                                         icon="happy-outline"
                                         label="Mood"
-                                        value={`${MOOD_EMOJI[data.mood] ?? ''} ${data.mood}`}
+                                        value={`${MOOD_EMOJI[displayData.mood] ?? ''} ${displayData.mood}`}
                                     />
                                 )}
-                                {data.pain_level != null && (
+                                {displayData.pain_level != null && (
                                     <StatCard
                                         icon="fitness-outline"
                                         label="Pain"
-                                        value={`${data.pain_level}/10`}
+                                        value={`${displayData.pain_level}/10`}
                                     />
                                 )}
-                                {data.fatigue_level != null && (
+                                {displayData.fatigue_level != null && (
                                     <StatCard
                                         icon="battery-half-outline"
                                         label="Fatigue"
-                                        value={`${data.fatigue_level}/10`}
+                                        value={`${displayData.fatigue_level}/10`}
                                     />
                                 )}
-                                {(data.painkiller_count != null && data.painkiller_count > 0) && (
+                                {(displayData.painkiller_count != null && displayData.painkiller_count > 0) && (
                                     <StatCard
                                         icon="medical-outline"
                                         label="Pills"
-                                        value={`${data.painkiller_count}`}
+                                        value={`${displayData.painkiller_count}`}
                                     />
                                 )}
-                                {(data.total_calories != null && data.total_calories > 0) && (
-                                    <StatCard
-                                        icon="flame-outline"
-                                        label="Calories"
-                                        value={`${data.total_calories} kcal`}
-                                    />
+                                {(displayData.total_calories != null && displayData.total_calories > 0) && (
+                                    <>
+                                        <StatCard
+                                            icon="flame-outline"
+                                            label="Calories"
+                                            value={`${displayData.total_calories} kcal`}
+                                        />
+                                        {(displayData.total_protein != null && displayData.total_protein > 0) && (
+                                            <StatCard icon="restaurant-outline" label="Protein" value={`${displayData.total_protein}g`} />
+                                        )}
+                                        {(displayData.total_fat != null && displayData.total_fat > 0) && (
+                                            <StatCard icon="fast-food-outline" label="Fat" value={`${displayData.total_fat}g`} />
+                                        )}
+                                        {(displayData.total_carbs != null && displayData.total_carbs > 0) && (
+                                            <StatCard icon="nutrition-outline" label="Carbs" value={`${displayData.total_carbs}g`} />
+                                        )}
+                                    </>
                                 )}
                             </View>
 
-                            {data.total_tasks != null && data.total_tasks > 0 && (
+                            {displayData.total_tasks != null && displayData.total_tasks > 0 && (
                                 <View style={modalStyles.taskCard}>
                                     <View style={modalStyles.taskCardHeader}>
                                         <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.success} />
                                         <Text style={modalStyles.taskCardTitle}>Daily Tasks</Text>
                                     </View>
                                     <View style={modalStyles.taskProgressBg}>
-                                        <View style={[modalStyles.taskProgressFill, { width: `${data.completion_percent ?? 0}%` }]} />
+                                        <View style={[modalStyles.taskProgressFill, { width: `${displayData.completion_percent ?? 0}%` }]} />
                                     </View>
                                     <Text style={modalStyles.taskCardSubtitle}>
-                                        {data.completion_percent ?? 0}% completed ({data.total_tasks} total)
+                                        {displayData.completion_percent ?? 0}% completed ({displayData.total_tasks} total)
                                     </Text>
                                 </View>
                             )}
 
-                            {data.notes ? (
+                            {displayData.notes ? (
                                 <View style={modalStyles.notesCard}>
                                     <View style={modalStyles.notesCardHeader}>
                                         <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
                                         <Text style={modalStyles.notesCardTitle}>Notes</Text>
                                     </View>
-                                    <Text style={modalStyles.notesText}>{data.notes}</Text>
+                                    <Text style={modalStyles.notesText}>{displayData.notes}</Text>
                                 </View>
                             ) : null}
                         </View>
+                    )}
+
+                    {onEditCheckIn && (
+                        <TouchableOpacity
+                            style={modalStyles.editBtn}
+                            onPress={() => { onClose(); onEditCheckIn(date); }}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="create-outline" size={18} color={colors.primary} />
+                            <Text style={modalStyles.editBtnText}>{hasData ? 'Edit Check-in' : 'Add Check-in'}</Text>
+                        </TouchableOpacity>
                     )}
 
                     <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
@@ -175,7 +203,7 @@ const DayDetailModal = ({ visible, date, data, onClose }: DayDetailModalProps) =
 
 // ─── PainHeatmap ─────────────────────────────────────────────────────────────
 
-export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapProps) => {
+export const PainHeatmap = ({ year, calendarData, onYearChange, onEditCheckIn }: PainHeatmapProps) => {
     const [mode, setMode] = useState<HeatmapMode>('pain');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -183,7 +211,7 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
     const handleDayPress = (date: string, isOutside: boolean) => {
         if (isOutside) return;
         const data = calendarData[date];
-        if (!data && !isToday(date)) return; // nothing to show for empty days not today
+        if (!data && !isToday(date) && !onEditCheckIn) return; // nothing to show for empty days
         setSelectedDate(date);
         setModalVisible(true);
     };
@@ -248,6 +276,7 @@ export const PainHeatmap = ({ year, calendarData, onYearChange }: PainHeatmapPro
                 date={selectedDate}
                 data={selectedDate ? (calendarData[selectedDate] ?? null) : null}
                 onClose={() => setModalVisible(false)}
+                onEditCheckIn={onEditCheckIn}
             />
 
              <View style={styles.header}>
@@ -608,6 +637,22 @@ const modalStyles = StyleSheet.create({
         ...typography.body,
         color: colors.textSecondary,
         textAlign: 'center',
+    },
+    editBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.s,
+        paddingVertical: spacing.m,
+        borderRadius: borderRadius.l,
+        backgroundColor: colors.accentSoft,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+        marginTop: spacing.s,
+    },
+    editBtnText: {
+        ...typography.bodyBold,
+        color: colors.primary,
     },
     closeBtn: {
         backgroundColor: colors.primary,

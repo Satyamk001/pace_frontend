@@ -4,11 +4,14 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface FoodSummaryCardProps {
   totalCalories: number;
+  totalProtein?: number;
+  totalFat?: number;
+  totalCarbs?: number;
   eatenCount: number;
   totalCount: number;
 }
 
-export const FoodSummaryCard: React.FC<FoodSummaryCardProps> = ({ totalCalories, eatenCount, totalCount }) => {
+export const FoodSummaryCard: React.FC<FoodSummaryCardProps> = ({ totalCalories, totalProtein = 0, totalFat = 0, totalCarbs = 0, eatenCount, totalCount }) => {
   const progress = totalCount > 0 ? eatenCount / totalCount : 0;
 
   return (
@@ -19,6 +22,24 @@ export const FoodSummaryCard: React.FC<FoodSummaryCardProps> = ({ totalCalories,
         <Text style={styles.summaryValue}>
           {totalCalories} <Text style={styles.unit}>kcal</Text>
         </Text>
+      </View>
+
+      {/* Macros */}
+      <View style={styles.macrosRow}>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue} numberOfLines={1} adjustsFontSizeToFit>{Number(totalProtein).toFixed(1)}g</Text>
+          <Text style={styles.macroLabel}>Protein</Text>
+        </View>
+        <View style={styles.macroDivider} />
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue} numberOfLines={1} adjustsFontSizeToFit>{Number(totalFat).toFixed(1)}g</Text>
+          <Text style={styles.macroLabel}>Fat</Text>
+        </View>
+        <View style={styles.macroDivider} />
+        <View style={styles.macroItem}>
+          <Text style={styles.macroValue} numberOfLines={1} adjustsFontSizeToFit>{Number(totalCarbs).toFixed(1)}g</Text>
+          <Text style={styles.macroLabel}>Carbs</Text>
+        </View>
       </View>
 
       {/* Progress bar */}
@@ -48,7 +69,7 @@ const styles = StyleSheet.create({
   },
   calorieSection: {
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.m,
   },
   summaryLabel: {
     ...typography.caption,
@@ -86,5 +107,38 @@ const styles = StyleSheet.create({
   progressText: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  macrosRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.m,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.m,
+    marginBottom: spacing.m,
+  },
+  macroItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  macroValue: {
+    ...typography.h3,
+    color: colors.text,
+    fontSize: 16,
+  },
+  macroLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  macroDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.m,
   },
 });

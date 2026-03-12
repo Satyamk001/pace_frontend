@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { ToastProvider } from './src/contexts/ToastContext';
 import { TasksProvider } from './src/contexts/TasksContext';
+import { NotificationService } from './src/services/NotificationService';
 
 if (Platform.OS === 'web') {
   const style = document.createElement('style');
@@ -159,9 +160,9 @@ export default function App() {
   );
 }
 
-import { NotificationService } from './src/services/NotificationService';
 
-const MainAppContent = () => {
+
+function MainAppContent() {
     const [isSplashVisible, setIsSplashVisible] = React.useState(true);
     // FIX Bug 8: hold the listener subscription so we can remove it on unmount
     const notifListenerRef = useRef<Notifications.Subscription | null>(null);
