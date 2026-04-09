@@ -7,8 +7,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Platform,
-    ScrollView,
-    KeyboardAvoidingView
+    ScrollView
 } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +20,7 @@ import { CustomDialog } from '../components/ui/CustomDialog';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 import { EnergySelector } from '../components/EnergySelector';
+import { KeyboardAwareLayout } from '../components/ui/KeyboardAwareLayout';
 
 export const AddTaskScreen = ({ navigation, route }: any) => {
     const { getToken } = useAuth();
@@ -66,11 +66,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                 onClose={() => setDialogVisible(false)}
             />
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flex}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 60) : 0}
-            >
+            <KeyboardAwareLayout style={styles.flex}>
                 <View style={styles.contentContainer}>
                     <ScrollView
                         contentContainerStyle={styles.scrollContent}
@@ -163,7 +159,7 @@ export const AddTaskScreen = ({ navigation, route }: any) => {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </KeyboardAvoidingView>
+            </KeyboardAwareLayout>
 
             {/* Pickers */}
             <DateTimeModal

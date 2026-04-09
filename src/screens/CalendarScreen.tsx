@@ -326,10 +326,14 @@ export const CalendarScreen = ({ route, navigation }: any) => {
                     </View>
                 </View>
 
-                {Boolean(healthMetrics?.notes) && (
+                {Boolean(healthMetrics?.notes) && Object.keys(healthMetrics.notes || {}).length > 0 && (
                     <View style={styles.notesRow}>
                         <Ionicons name="document-text-outline" size={13} color={colors.textSecondary} />
-                        <Text style={styles.notesText} numberOfLines={2}>{healthMetrics.notes}</Text>
+                        <Text style={styles.notesText} numberOfLines={2}>
+                          {typeof healthMetrics.notes === 'string' 
+                            ? healthMetrics.notes 
+                            : Object.entries(healthMetrics.notes).map(([t, n]) => `${t}: ${n}`).join(' | ')}
+                        </Text>
                     </View>
                 )}
             </View>

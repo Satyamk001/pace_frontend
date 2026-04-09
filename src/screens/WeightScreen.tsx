@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, Alert,
-    Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator,
+    Dimensions, Platform, ActivityIndicator,
     FlatList, Animated,
 } from 'react-native';
+import { KeyboardAwareLayout } from '../components/ui/KeyboardAwareLayout';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -325,18 +326,14 @@ export const WeightScreen = () => {
                 </View>
             </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
-            >
+            <KeyboardAwareLayout style={{ flex: 1 }}>
                 <FlatList
                     data={reversedHistory}
                     renderItem={({ item, index }) => (
                         <HistoryItem item={item} prevItem={reversedHistory[index + 1]} index={index} />
                     )}
                     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                    ListHeaderComponent={renderHeader}
+                    ListHeaderComponent={renderHeader()}
                     ListEmptyComponent={
                         !loading ? (
                             <EmptyState
@@ -354,7 +351,7 @@ export const WeightScreen = () => {
                     windowSize={5}
                     ListFooterComponent={<View style={{ height: 100 }} />}
                 />
-            </KeyboardAvoidingView>
+            </KeyboardAwareLayout>
         </ScreenLayout>
     );
 };

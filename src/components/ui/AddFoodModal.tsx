@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Modal,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Switch, ScrollView,
+  Platform, ActivityIndicator, Switch, ScrollView,
   Animated, Dimensions, TouchableWithoutFeedback, Alert,
 } from 'react-native';
+import { KeyboardAwareLayout } from './KeyboardAwareLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 
@@ -139,8 +140,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
           <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
         </TouchableWithoutFeedback>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <KeyboardAwareLayout
           style={styles.modalWrap}
           pointerEvents="box-none"
         >
@@ -372,7 +372,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </KeyboardAwareLayout>
       </View>
     </Modal>
   );

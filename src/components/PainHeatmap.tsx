@@ -175,7 +175,11 @@ const DayDetailModal = ({ visible, date, data, onClose, onEditCheckIn }: DayDeta
                                         <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
                                         <Text style={modalStyles.notesCardTitle}>Notes</Text>
                                     </View>
-                                    <Text style={modalStyles.notesText}>{displayData.notes}</Text>
+                                    <Text style={modalStyles.notesText}>
+                                      {typeof displayData.notes === 'string' 
+                                        ? displayData.notes 
+                                        : Object.entries(displayData.notes).map(([t, n]) => `${t}: ${n}`).join('\n')}
+                                    </Text>
                                 </View>
                             ) : null}
                         </View>

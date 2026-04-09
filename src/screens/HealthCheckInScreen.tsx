@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform
 } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
@@ -22,6 +21,7 @@ import { MoodSelector } from '../components/MoodSelector';
 import { ScreenLayout } from '../components/ui/ScreenLayout';
 import { BackButton } from '../components/ui/BackButton';
 import { getLocalDateKey } from '../utils/dateUtils';
+import { KeyboardAwareLayout } from '../components/ui/KeyboardAwareLayout';
 
 export const HealthCheckInScreen = ({ navigation }: any) => {
   const { getToken } = useAuth();
@@ -35,6 +35,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const [pain, setPain] = useState(0);
   const [fatigue, setFatigue] = useState(0);
   const [mood, setMood] = useState('GOOD');
+  const [existingNotes, setExistingNotes] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [painkillerCount, setPainkillerCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -56,7 +57,14 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
       if (metrics) {
         setPain(metrics.pain_level || 0);
         setFatigue(metrics.fatigue_level || 0);
-        setNotes(metrics.notes || '');
+        if (metrics.notes) {
+          if (typeof metrics.notes === 'string') {
+             setExistingNotes({ "Previous Note": metrics.notes });
+          } else {
+             setExistingNotes(metrics.notes);
+          }
+        }
+        setNotes('');
         setPainkillerCount(metrics.painkiller_count || 0);
         setIsUpdate(true);
       }
@@ -70,13 +78,20 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      let notesPayload: Record<string, string> | undefined = Object.keys(existingNotes).length > 0 ? { ...existingNotes } : undefined;
+      if (notes.trim()) {
+        // e.g. "8:00 AM" format
+        const timeKey = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        notesPayload = { ...(notesPayload || {}), [timeKey]: notes.trim() };
+      }
+
       await api.logDay(targetDate, undefined, mood);
       await api.logHealthMetrics({
         date: targetDate,
         painLevel: Math.round(pain),
         fatigueLevel: Math.round(fatigue),
         mood,
-        notes,
+        notes: notesPayload,
         painkillerCount,
       });
 
@@ -101,11 +116,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
 
   return (
     <ScreenLayout edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
-      >
+      <KeyboardAwareLayout style={styles.flex}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -187,10 +198,22 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
           {/* Notes Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Notes</Text>
+            
+            {Object.keys(existingNotes).length > 0 && (
+              <View style={styles.existingNotesContainer}>
+                {Object.entries(existingNotes).map(([time, note], idx) => (
+                  <View key={idx} style={styles.existingNoteItem}>
+                    <Text style={styles.noteTime}>{time}</Text>
+                    <Text style={styles.noteText}>{note}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TextInput
               style={styles.input}
               multiline
-              placeholder="Any specific symptoms or triggers?"
+              placeholder="Add a new note for this check-in..."
               value={notes}
               onChangeText={setNotes}
               placeholderTextColor={colors.textLight}
@@ -209,7 +232,7 @@ export const HealthCheckInScreen = ({ navigation }: any) => {
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareLayout>
     </ScreenLayout>
   );
 };
@@ -311,6 +334,25 @@ const styles = StyleSheet.create({
   },
 
   // Input fields
+  existingNotesContainer: {
+    marginBottom: spacing.m,
+  },
+  existingNoteItem: {
+    backgroundColor: colors.surfaceSoft,
+    padding: spacing.m,
+    borderRadius: borderRadius.s,
+    marginBottom: spacing.xs,
+  },
+  noteTime: {
+    ...typography.caption,
+    color: colors.primary,
+    marginBottom: 2,
+    fontWeight: 'bold',
+  },
+  noteText: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
   input: {
     ...typography.body,
     backgroundColor: colors.inputBackground,

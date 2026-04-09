@@ -92,7 +92,7 @@ export const createApiService = (getToken: () => Promise<string | null>) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics?date=${date}`);
     },
 
-    logHealthMetrics: async (data: { date: string, painLevel: number, fatigueLevel: number, mood: string, notes?: string, painkillerCount?: number }) => {
+    logHealthMetrics: async (data: { date: string, painLevel: number, fatigueLevel: number, mood: string, notes?: Record<string, string>, painkillerCount?: number }) => {
       return await apiFetch(`${BACKEND_URL}/health-metrics`, {
         method: 'POST',
         body: JSON.stringify(data),
